@@ -314,13 +314,8 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 			}));
 		}
 
-		// 可視性チェック（簡素化）
-		query = query.andWhere(new Brackets(qb => {
-			qb.where('note.visibility IN (:...publicVisibilities)', { publicVisibilities: ['public', 'home'] })
-				.orWhere('note.userId = :meId', { meId: me.id })
-				.orWhere(':meId = ANY(note.visibleUserIds)', { meId: me.id })
-				.orWhere(':meId = ANY(note.mentions)', { meId: me.id });
-		}));
+		// 可視性チェック
+		this.queryService.generateVisibilityQuery(query, me);
 
 		// リノートミュートフィルタ
 		if (renoteMutedUserIds.length > 0) {
