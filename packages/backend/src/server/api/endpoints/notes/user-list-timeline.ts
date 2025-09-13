@@ -375,7 +375,7 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 		// 最小限の安全なクエリ
 		const query = this.notesRepository.createQueryBuilder('note')
 			.innerJoinAndSelect('note.user', 'user')
-			.innerJoin('user_list_membership', 'ulm', 'ulm.userId = note.userId')
+			.innerJoin(this.userListMembershipsRepository.metadata.tableName, 'ulm', 'ulm.userId = note.userId')
 			.where('ulm.userListId = :listId', { listId: list.id })
 			.andWhere('note.channelId IS NULL')
 			.andWhere('user.isSuspended = false')
