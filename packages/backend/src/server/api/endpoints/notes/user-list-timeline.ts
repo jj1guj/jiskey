@@ -5,7 +5,7 @@
 
 import { Inject, Injectable } from '@nestjs/common';
 import { Brackets } from 'typeorm';
-import type { MiMeta, MiUserList, NotesRepository, UserListMembershipsRepository, UserListsRepository } from '@/models/_.js';
+import type { MiMeta, MiUserList, NotesRepository, UserListMembershipsRepository, UserListsRepository, MutingsRepository, BlockingsRepository, RenoteMutingsRepository } from '@/models/_.js';
 import { Endpoint } from '@/server/api/endpoint-base.js';
 import { NoteEntityService } from '@/core/entities/NoteEntityService.js';
 import ActiveUsersChart from '@/core/chart/charts/active-users.js';
@@ -79,6 +79,15 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 		@Inject(DI.userListMembershipsRepository)
 		private userListMembershipsRepository: UserListMembershipsRepository,
 
+		@Inject(DI.mutingsRepository)
+		private mutingsRepository: MutingsRepository,
+
+		@Inject(DI.blockingsRepository)
+		private blockingsRepository: BlockingsRepository,
+
+		@Inject(DI.renoteMutingsRepository)
+		private renoteMutingsRepository: RenoteMutingsRepository,
+
 		private noteEntityService: NoteEntityService,
 		private activeUsersChart: ActiveUsersChart,
 		private idService: IdService,
@@ -86,8 +95,8 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 		private queryService: QueryService,
 	) {
 		super(meta, paramDef, async (ps, me) => {
-			const untilId = ps.untilId ?? (ps.untilDate ? this.idService.gen(ps.untilDate!) : null);
-			const sinceId = ps.sinceId ?? (ps.sinceDate ? this.idService.gen(ps.sinceDate!) : null);
+			const untilId = ps.untilId ?? (ps.untilDate ? this.idService.gen(ps.untilDate) : null);
+			const sinceId = ps.sinceId ?? (ps.sinceDate ? this.idService.gen(ps.sinceDate) : null);
 
 			const list = await this.userListsRepository.findOneBy({
 				id: ps.listId,
@@ -153,86 +162,235 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 		withFiles: boolean,
 		withRenotes: boolean,
 	}, me: MiLocalUser) {
-		//#region Construct query
-		const query = this.queryService.makePaginationQuery(this.notesRepository.createQueryBuilder('note'), ps.sinceId, ps.untilId)
-			.innerJoin(this.userListMembershipsRepository.metadata.targetName, 'userListMemberships', 'userListMemberships.userId = note.userId')
+		try {
+			return await this.getOptimizedTimeline(list, ps, me);
+		} catch (error) {
+			return await this.getFallbackTimeline(list, ps, me);
+		}
+	}
+
+	private async getOptimizedTimeline(list: MiUserList, ps: {
+		untilId?: string | null;
+		sinceId?: string | null;
+		limit?: number;
+		includeMyRenotes?: boolean;
+		includeRenotedMyNotes?: boolean;
+		includeLocalRenotes?: boolean;
+		withFiles?: boolean;
+		withRenotes?: boolean;
+	}, me: MiLocalUser) {
+		const startTime = Date.now();
+
+		// 1. ユーザーリストのメンバーを取得（小さなクエリ）
+		const listMembers = await this.userListMembershipsRepository.find({
+			where: { userListId: list.id },
+			select: ['userId', 'withReplies'],
+			cache: 30000, // 30秒キャッシュ
+		});
+
+		if (listMembers.length === 0) {
+			return [];
+		}
+
+		// 2. フィルタ情報を並列取得（Index Only Scanを活用）
+		const [mutedUserIds, blockedUserIds, renoteMutedUserIds] = await Promise.all([
+			this.getMutedUsers(me.id),
+			this.getBlockedUsers(me.id),
+			this.getRenoteMutedUsers(me.id),
+		]);
+
+		// 3. フィルタ済みメンバーリスト作成
+		const blockedSet = new Set([...mutedUserIds, ...blockedUserIds]);
+		const validMembers = listMembers.filter(member => !blockedSet.has(member.userId));
+
+		if (validMembers.length === 0) {
+			return [];
+		}
+
+		// 4. 小さなバッチでノートを取得（大きなJOINを回避）
+		const batchSize = 15; // 一度に15ユーザーずつ処理
+		const allNotes = [];
+
+		for (let i = 0; i < validMembers.length; i += batchSize) {
+			const batch = validMembers.slice(i, i + batchSize);
+			const batchUserIds = batch.map(m => m.userId);
+
+			try {
+				const batchNotes = await this.getNotesForUsers(batchUserIds, batch, ps, me, renoteMutedUserIds);
+				allNotes.push(...batchNotes);
+
+				// 十分な数が集まったら終了
+				if (allNotes.length >= (ps.limit ?? 10) * 3) {
+					break;
+				}
+			} catch (error) {
+				continue;
+			}
+		}
+
+		// 5. ソートして制限
+		const sortedNotes = allNotes
+			.sort((a, b) => b.id.localeCompare(a.id))
+			.slice(0, ps.limit ?? 10);
+
+		return sortedNotes;
+	}
+
+	private async getMutedUsers(userId: string): Promise<string[]> {
+		const result = await this.mutingsRepository.find({
+			where: { muterId: userId },
+			select: ['muteeId'],
+			cache: 60000,
+		});
+		return result.map((r: { muteeId: string }) => r.muteeId);
+	}
+
+	private async getBlockedUsers(userId: string): Promise<string[]> {
+		const result = await this.blockingsRepository.find({
+			where: { blockerId: userId },
+			select: ['blockeeId'],
+			cache: 60000,
+		});
+		return result.map((r: { blockeeId: string }) => r.blockeeId);
+	}
+
+	private async getRenoteMutedUsers(userId: string): Promise<string[]> {
+		try {
+			const result = await this.renoteMutingsRepository.find({
+				where: { muterId: userId },
+				select: ['muteeId'],
+				cache: 60000,
+			});
+			return result.map((r: { muteeId: string }) => r.muteeId);
+		} catch (error) {
+			// RenoteMutingテーブルが存在しない場合
+			return [];
+		}
+	}
+
+	private async getNotesForUsers(
+		userIds: string[],
+		members: Array<{ userId: string; withReplies: boolean }>,
+		ps: {
+			untilId?: string | null;
+			sinceId?: string | null;
+			limit?: number;
+			includeMyRenotes?: boolean;
+			includeRenotedMyNotes?: boolean;
+			includeLocalRenotes?: boolean;
+			withFiles?: boolean;
+			withRenotes?: boolean;
+		},
+		me: MiLocalUser,
+		renoteMutedUserIds: string[],
+	) {
+		let query = this.notesRepository.createQueryBuilder('note')
 			.innerJoinAndSelect('note.user', 'user')
 			.leftJoinAndSelect('note.reply', 'reply')
 			.leftJoinAndSelect('note.renote', 'renote')
 			.leftJoinAndSelect('reply.user', 'replyUser')
 			.leftJoinAndSelect('renote.user', 'renoteUser')
-			.andWhere('userListMemberships.userListId = :userListId', { userListId: list.id })
-			.andWhere('note.channelId IS NULL') // チャンネルノートではない
-			.andWhere(new Brackets(qb => {
-				qb
-					.where('note.replyId IS NULL') // 返信ではない
-					.orWhere(new Brackets(qb => {
-						qb // 返信だけど投稿者自身への返信
-							.where('note.replyId IS NOT NULL')
-							.andWhere('note.replyUserId = note.userId');
-					}))
-					.orWhere(new Brackets(qb => {
-						qb // 返信だけど自分宛ての返信
-							.where('note.replyId IS NOT NULL')
-							.andWhere('note.replyUserId = :meId', { meId: me.id });
-					}))
-					.orWhere(new Brackets(qb => {
-						qb // 返信だけどwithRepliesがtrueの場合
-							.where('note.replyId IS NOT NULL')
-							.andWhere('userListMemberships.withReplies = true');
-					}));
+			.where('note.userId IN (:...userIds)', { userIds })
+			.andWhere('note.channelId IS NULL')
+			.andWhere('user.isSuspended = false');
+
+		// 返信フィルタリング
+		const membersWithReplies = new Set(
+			members.filter(m => m.withReplies).map(m => m.userId),
+		);
+
+		if (membersWithReplies.size > 0) {
+			query = query.andWhere(new Brackets(qb => {
+				qb.where('note.replyId IS NULL')
+					.orWhere('note.replyUserId = note.userId')
+					.orWhere('note.replyUserId = :meId', { meId: me.id })
+					.orWhere('note.userId IN (:...withRepliesUsers)', { withRepliesUsers: Array.from(membersWithReplies) });
 			}));
+		} else {
+			query = query.andWhere(new Brackets(qb => {
+				qb.where('note.replyId IS NULL')
+					.orWhere('note.replyUserId = note.userId')
+					.orWhere('note.replyUserId = :meId', { meId: me.id });
+			}));
+		}
 
+		// 可視性チェック
 		this.queryService.generateVisibilityQuery(query, me);
-		this.queryService.generateBaseNoteFilteringQuery(query, me);
-		this.queryService.generateMutedUserRenotesQueryForNotes(query, me);
 
+		// リノートミュートフィルタ
+		if (renoteMutedUserIds.length > 0) {
+			query = query.andWhere(new Brackets(qb => {
+				qb.where('note.renoteId IS NULL')
+					.orWhere('note.text IS NOT NULL')
+					.orWhere('note.userId NOT IN (:...renoteMutedIds)', { renoteMutedIds: renoteMutedUserIds });
+			}));
+		}
+
+		// その他のフィルタ
 		if (ps.includeMyRenotes === false) {
-			query.andWhere(new Brackets(qb => {
+			query = query.andWhere(new Brackets(qb => {
 				qb.orWhere('note.userId != :meId', { meId: me.id });
 				qb.orWhere('note.renoteId IS NULL');
 				qb.orWhere('note.text IS NOT NULL');
 				qb.orWhere('note.fileIds != \'{}\'');
-				qb.orWhere('0 < (SELECT COUNT(*) FROM poll WHERE poll."noteId" = note.id)');
-			}));
-		}
-
-		if (ps.includeRenotedMyNotes === false) {
-			query.andWhere(new Brackets(qb => {
-				qb.orWhere('note.renoteUserId != :meId', { meId: me.id });
-				qb.orWhere('note.renoteId IS NULL');
-				qb.orWhere('note.text IS NOT NULL');
-				qb.orWhere('note.fileIds != \'{}\'');
-				qb.orWhere('0 < (SELECT COUNT(*) FROM poll WHERE poll."noteId" = note.id)');
-			}));
-		}
-
-		if (ps.includeLocalRenotes === false) {
-			query.andWhere(new Brackets(qb => {
-				qb.orWhere('note.renoteUserHost IS NOT NULL');
-				qb.orWhere('note.renoteId IS NULL');
-				qb.orWhere('note.text IS NOT NULL');
-				qb.orWhere('note.fileIds != \'{}\'');
-				qb.orWhere('0 < (SELECT COUNT(*) FROM poll WHERE poll."noteId" = note.id)');
 			}));
 		}
 
 		if (ps.withRenotes === false) {
-			query.andWhere(new Brackets(qb => {
+			query = query.andWhere(new Brackets(qb => {
 				qb.orWhere('note.renoteId IS NULL');
-				qb.orWhere(new Brackets(qb => {
-					qb.orWhere('note.text IS NOT NULL');
-					qb.orWhere('note.fileIds != \'{}\'');
-					qb.orWhere('0 < (SELECT COUNT(*) FROM poll WHERE poll."noteId" = note.id)');
-				}));
+				qb.orWhere('note.text IS NOT NULL');
+				qb.orWhere('note.fileIds != \'{}\'');
 			}));
 		}
 
 		if (ps.withFiles) {
-			query.andWhere('note.fileIds != \'{}\'');
+			query = query.andWhere('note.fileIds != \'{}\'');
 		}
-		//#endregion
 
-		return await query.limit(ps.limit).getMany();
+		// ページング
+		if (ps.untilId) {
+			query = query.andWhere('note.id < :untilId', { untilId: ps.untilId });
+		}
+		if (ps.sinceId) {
+			query = query.andWhere('note.id > :sinceId', { sinceId: ps.sinceId });
+		}
+
+		return query
+			.orderBy('note.id', 'DESC')
+			.limit(50) // 各バッチで最大50件
+			.getMany();
+	}
+
+	private async getFallbackTimeline(list: MiUserList, ps: {
+		untilId?: string | null;
+		sinceId?: string | null;
+		limit?: number;
+		includeMyRenotes?: boolean;
+		includeRenotedMyNotes?: boolean;
+		includeLocalRenotes?: boolean;
+		withFiles?: boolean;
+		withRenotes?: boolean;
+	}, me: MiLocalUser) {
+		// 最小限の安全なクエリ
+		const query = this.notesRepository.createQueryBuilder('note')
+			.innerJoinAndSelect('note.user', 'user')
+			.innerJoin(this.userListMembershipsRepository.metadata.tableName, 'ulm', 'ulm.userId = note.userId')
+			.where('ulm.userListId = :listId', { listId: list.id })
+			.andWhere('note.channelId IS NULL')
+			.andWhere('user.isSuspended = false')
+			.andWhere('note.visibility IN (:...visibilities)', { visibilities: ['public', 'home'] });
+
+		if (ps.untilId) {
+			query.andWhere('note.id < :untilId', { untilId: ps.untilId });
+		}
+		if (ps.sinceId) {
+			query.andWhere('note.id > :sinceId', { sinceId: ps.sinceId });
+		}
+
+		return query
+			.orderBy('note.id', 'DESC')
+			.limit(ps.limit ?? 10)
+			.getMany();
 	}
 }

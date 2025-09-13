@@ -17,7 +17,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 			</button>
 		</li>
 	</ul>
-	<MkButton v-if="choices.length < 10" class="add" @click="add">{{ i18n.ts.add }}</MkButton>
+	<MkButton v-if="choices.length < 100" class="add" @click="add">{{ i18n.ts.add }}</MkButton>
 	<MkButton v-else class="add" disabled>{{ i18n.ts._poll.noMore }}</MkButton>
 	<MkSwitch v-model="multiple">{{ i18n.ts._poll.canMultipleVote }}</MkSwitch>
 	<section>
