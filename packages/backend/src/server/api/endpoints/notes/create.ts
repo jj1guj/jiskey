@@ -180,7 +180,7 @@ export const paramDef = {
 					type: 'array',
 					uniqueItems: true,
 					minItems: 2,
-					maxItems: 10,
+					maxItems: 100,
 					items: { type: 'string', minLength: 1, maxLength: 50 },
 				},
 				multiple: { type: 'boolean' },
