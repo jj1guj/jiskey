@@ -247,11 +247,11 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 
 	private async getBlockedUsers(userId: string): Promise<string[]> {
 		const result = await this.blockingsRepository.find({
-			where: { blockeeId: userId },
-			select: ['blockerId'],
+			where: { blockerId: userId },
+			select: ['blockeeId'],
 			cache: 60000,
 		});
-		return result.map((r: { blockerId: string }) => r.blockerId);
+		return result.map((r: { blockeeId: string }) => r.blockeeId);
 	}
 
 	private async getRenoteMutedUsers(userId: string): Promise<string[]> {
