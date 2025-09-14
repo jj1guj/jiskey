@@ -345,7 +345,10 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 		}
 
 		if (ps.withFiles) {
-			query = query.andWhere('note.fileIds != \'{}\'');
+			query = query.andWhere(new Brackets(qb => {
+				qb.where('note.fileIds != \'{}\'')
+					.orWhere('renote.fileIds != \'{}\'');
+			}));
 		}
 
 		// ページング
