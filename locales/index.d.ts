@@ -5577,6 +5577,10 @@ export interface Locale extends ILocale {
      * 予約
      */
     "scheduled": string;
+    /**
+     * ウィジェット
+     */
+    "widgets": string;
     "_compression": {
         "_quality": {
             /**
@@ -10477,6 +10481,14 @@ export interface Locale extends ILocale {
              * アンケートが終了
              */
             "pollEnded": string;
+            /**
+             * 予約投稿が成功した
+             */
+            "scheduledNotePosted": string;
+            /**
+             * 予約投稿が失敗した
+             */
+            "scheduledNotePostFailed": string;
             /**
              * フォロー申請を受け取った
              */
