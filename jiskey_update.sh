@@ -46,6 +46,8 @@ git fetch upstream --tags
 echo "Checking if branch '$BRANCH_NAME' exists..."
 if git show-ref --verify --quiet refs/heads/$BRANCH_NAME; then
     echo "✅ Branch '$BRANCH_NAME' exists"
+elif git show-ref --verify --quiet refs/remotes/origin/$BRANCH_NAME; then
+    echo "✓ Branch '$BRANCH_NAME' exists on remote"
 else
     echo "❌ Error: Branch '$BRANCH_NAME' does not exist"
     exit 1
