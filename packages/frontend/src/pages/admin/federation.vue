@@ -58,6 +58,7 @@ const {
 		{ label: i18n.ts.subscribing, value: 'subscribing' },
 		{ label: i18n.ts.publishing, value: 'publishing' },
 		{ label: i18n.ts.suspended, value: 'suspended' },
+		{ label: i18n.ts._delivery._type.manuallySuspended, value: 'manuallySuspended' },
 		{ label: i18n.ts.blocked, value: 'blocked' },
 		{ label: i18n.ts.silence, value: 'silenced' },
 		{ label: i18n.ts.notResponding, value: 'notResponding' },
@@ -95,6 +96,7 @@ const paginator = markRaw(new Paginator('federation/instances', {
 			state.value === 'subscribing' ? { subscribing: true, suspended: false, blocked: false } :
 			state.value === 'publishing' ? { publishing: true, suspended: false, blocked: false } :
 			state.value === 'suspended' ? { suspended: true } :
+			state.value === 'manuallySuspended' ? { manuallySuspended: true } :
 			state.value === 'blocked' ? { blocked: true } :
 			state.value === 'silenced' ? { silenced: true } :
 			state.value === 'notResponding' ? { notResponding: true } :
