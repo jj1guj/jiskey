@@ -14,6 +14,7 @@ import { IdService } from '@/core/IdService.js';
 import { QueryService } from '@/core/QueryService.js';
 import { MiLocalUser } from '@/models/User.js';
 import { FanoutTimelineEndpointService } from '@/core/FanoutTimelineEndpointService.js';
+import { ChannelMutingService } from '@/core/ChannelMutingService.js';
 import { ApiError } from '../../error.js';
 
 export const meta = {
@@ -93,6 +94,7 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 		private idService: IdService,
 		private fanoutTimelineEndpointService: FanoutTimelineEndpointService,
 		private queryService: QueryService,
+		private channelMutingService: ChannelMutingService,
 	) {
 		super(meta, paramDef, async (ps, me) => {
 			const untilId = ps.untilId ?? (ps.untilDate ? this.idService.gen(ps.untilDate) : null);
@@ -316,17 +318,20 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 
 		// 可視性チェック
 		this.queryService.generateVisibilityQuery(query, me);
+		this.queryService.generateBaseNoteFilteringQuery(query, me);
+		this.queryService.generateMutedUserRenotesQueryForNotes(query, me);
 
-		// リノートミュートフィルタ
-		if (renoteMutedUserIds.length > 0) {
-			query = query.andWhere(new Brackets(qb => {
-				qb.where('note.renoteId IS NULL')
-					.orWhere('note.text IS NOT NULL')
-					.orWhere('note.userId NOT IN (:...renoteMutedIds)', { renoteMutedIds: renoteMutedUserIds });
+		// -- ミュートされたチャンネルのリノート対策
+		const mutedChannelIds = await this.channelMutingService
+			.list({ requestUserId: me.id }, { idOnly: true })
+			.then(x => x.map(x => x.id));
+		if (mutedChannelIds.length > 0) {
+			query.andWhere(new Brackets(qb => {
+				qb.orWhere('note.renoteChannelId IS NULL')
+					.orWhere('note.renoteChannelId NOT IN (:...mutedChannelIds)', { mutedChannelIds });
 			}));
 		}
 
-		// その他のフィルタ
 		if (ps.includeMyRenotes === false) {
 			query = query.andWhere(new Brackets(qb => {
 				qb.orWhere('note.userId != :meId', { meId: me.id });
