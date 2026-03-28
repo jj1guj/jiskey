@@ -15,6 +15,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 						<template #label>{{ i18n.ts.name }}</template>
 					</MkInput>
 					<MkSwitch v-model="isPublic">{{ i18n.ts.public }}</MkSwitch>
+					<MkSwitch v-model="withFiles">{{ i18n.ts.withFileAntenna }}</MkSwitch>
 					<div class="_buttons">
 						<MkButton rounded primary @click="updateSettings">{{ i18n.ts.save }}</MkButton>
 						<MkButton rounded danger @click="deleteList()">{{ i18n.ts.delete }}</MkButton>
@@ -80,6 +81,7 @@ const props = defineProps<{
 
 const list = ref<Misskey.entities.UserList | null>(null);
 const isPublic = ref(false);
+const withFiles = ref(false);
 const name = ref('');
 const membershipsPaginator = markRaw(new Paginator('users/lists/get-memberships', {
 	limit: 30,
@@ -95,6 +97,7 @@ function fetchList() {
 		list.value = _list;
 		name.value = list.value.name;
 		isPublic.value = list.value.isPublic;
+		withFiles.value = list.value.withFiles;
 	});
 }
 
@@ -172,12 +175,16 @@ async function updateSettings() {
 		listId: list.value.id,
 		name: name.value,
 		isPublic: isPublic.value,
+		withFiles: withFiles.value,
 	});
 
 	userListsCache.delete();
 
 	list.value.name = name.value;
 	list.value.isPublic = isPublic.value;
+	list.value.withFiles = withFiles.value;
+
+	await os.success();
 }
 
 watch(() => props.listId, fetchList, { immediate: true });

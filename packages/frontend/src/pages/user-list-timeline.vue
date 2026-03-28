@@ -8,7 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 	<div class="_spacer" style="--MI_SPACER-w: 800px;">
 		<div :class="$style.tl">
 			<MkStreamingNotesTimeline
-				ref="tlEl" :key="listId"
+				ref="tlEl" :key="`${listId}-${(list?.withFiles ?? false)}`"
 				src="list"
 				:list="listId"
 				:sound="true"
@@ -19,7 +19,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 </template>
 
 <script lang="ts" setup>
-import { computed, watch, ref, useTemplateRef } from 'vue';
+import { computed, watch, ref, onActivated } from 'vue';
 import * as Misskey from 'misskey-js';
 import MkStreamingNotesTimeline from '@/components/MkStreamingNotesTimeline.vue';
 import { misskeyApi } from '@/utility/misskey-api.js';
@@ -34,6 +34,7 @@ const props = defineProps<{
 }>();
 
 const list = ref<Misskey.entities.UserList | null>(null);
+const activatedOnce = ref(false);
 
 watch(() => props.listId, async () => {
 	list.value = await misskeyApi('users/lists/show', {
@@ -41,11 +42,22 @@ watch(() => props.listId, async () => {
 	});
 }, { immediate: true });
 
+onActivated(async () => {
+	if (!activatedOnce.value) {
+		activatedOnce.value = true;
+		return;
+	}
+
+	list.value = await misskeyApi('users/lists/show', {
+		listId: props.listId,
+	});
+});
+
 function settings() {
 	router.push('/my/lists/:listId', {
 		params: {
 			listId: props.listId,
-		}
+		},
 	});
 }
 

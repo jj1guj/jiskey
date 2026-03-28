@@ -35,5 +35,10 @@ export const packedUserListSchema = {
 			nullable: false,
 			optional: false,
 		},
+		withFiles: {
+			type: 'boolean',
+			nullable: false,
+			optional: false,
+		},
 	},
 } as const;

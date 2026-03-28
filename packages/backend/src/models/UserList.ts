@@ -25,6 +25,11 @@ export class MiUserList {
 	})
 	public isPublic: boolean;
 
+	@Column('boolean', {
+		default: false,
+	})
+	public withFiles: boolean;
+
 	@ManyToOne(() => MiUser, {
 		onDelete: 'CASCADE',
 	})
