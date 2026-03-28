@@ -213,6 +213,7 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 
 		// 4. 小さなバッチでノートを取得（大きなJOINを回避）
 		const batchSize = 15; // 一度に15ユーザーずつ処理
+		const fetchLimitPerBatch = Math.max((ps.limit ?? 10) * 3, 50);
 		const allNotes = [];
 
 		for (let i = 0; i < validMembers.length; i += batchSize) {
@@ -220,13 +221,8 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 			const batchUserIds = batch.map(m => m.userId);
 
 			try {
-				const batchNotes = await this.getNotesForUsers(batchUserIds, batch, ps, me, renoteMutedUserIds);
+				const batchNotes = await this.getNotesForUsers(batchUserIds, batch, ps, me, renoteMutedUserIds, fetchLimitPerBatch);
 				allNotes.push(...batchNotes);
-
-				// 十分な数が集まったら終了
-				if (allNotes.length >= (ps.limit ?? 10) * 3) {
-					break;
-				}
 			} catch (error) {
 				continue;
 			}
@@ -287,6 +283,7 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 		},
 		me: MiLocalUser,
 		renoteMutedUserIds: string[],
+		fetchLimit = 50,
 	) {
 		let query = this.notesRepository.createQueryBuilder('note')
 			.innerJoinAndSelect('note.user', 'user')
@@ -368,7 +365,7 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 
 		return query
 			.orderBy('note.id', 'DESC')
-			.limit(50) // 各バッチで最大50件
+			.limit(fetchLimit)
 			.getMany();
 	}
 
