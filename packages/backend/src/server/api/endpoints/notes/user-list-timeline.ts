@@ -58,7 +58,6 @@ export const paramDef = {
 		withRenotes: { type: 'boolean', default: true },
 		withFiles: {
 			type: 'boolean',
-			default: false,
 			description: 'Only show notes that have attached files.',
 		},
 	},
@@ -135,17 +134,9 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 				allowPartial: ps.allowPartial,
 				me,
 				useDbFallback: this.serverSettings.enableFanoutTimelineDbFallback,
-				redisTimelines: withFiles ? [`userListTimelineWithFiles:${list.id}`, `userListTimeline:${list.id}`] : [`userListTimeline:${list.id}`],
+				redisTimelines: withFiles ? [`userListTimelineWithFiles:${list.id}`] : [`userListTimeline:${list.id}`],
 				alwaysIncludeMyNotes: true,
 				excludePureRenotes: !ps.withRenotes,
-				noteFilter: withFiles
-					? (note: any) => {
-						const hasFiles = Array.isArray(note.fileIds) && note.fileIds.length > 0;
-						const renote = note.renote;
-						const renoteHasFiles = renote != null && Array.isArray(renote.fileIds) && renote.fileIds.length > 0;
-						return hasFiles || renoteHasFiles;
-					}
-					: undefined,
 				dbFallback: async (untilId, sinceId, limit) => await this.getFromDb(list, {
 					untilId,
 					sinceId,
@@ -358,12 +349,11 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 
 		if (ps.withFiles) {
 			// 添付ファイル付きノートのみを取得するため、リノート先も含めてファイル有無で絞り込む
-			query = query
-				.leftJoinAndSelect('note.renote', 'renote')
-				.andWhere(new Brackets(qb => {
-					qb.where('note.fileIds != \'{}\'')
-						.orWhere('renote.fileIds != \'{}\'');
-				}));
+			// note.renote は先頭で既に 'renote' エイリアスでJOIN済みのため再JOINしない
+			query = query.andWhere(new Brackets(qb => {
+				qb.where('note.fileIds != \'{}\'')
+					.orWhere('renote.fileIds != \'{}\'');
+			}));
 		}
 
 		// ページング
