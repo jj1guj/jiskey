@@ -138,6 +138,14 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 				redisTimelines: withFiles ? [`userListTimelineWithFiles:${list.id}`, `userListTimeline:${list.id}`] : [`userListTimeline:${list.id}`],
 				alwaysIncludeMyNotes: true,
 				excludePureRenotes: !ps.withRenotes,
+				noteFilter: withFiles
+					? (note: any) => {
+						const hasFiles = Array.isArray(note.fileIds) && note.fileIds.length > 0;
+						const renote = note.renote;
+						const renoteHasFiles = renote != null && Array.isArray(renote.fileIds) && renote.fileIds.length > 0;
+						return hasFiles || renoteHasFiles;
+					}
+					: undefined,
 				dbFallback: async (untilId, sinceId, limit) => await this.getFromDb(list, {
 					untilId,
 					sinceId,
