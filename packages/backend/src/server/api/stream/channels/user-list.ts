@@ -8,11 +8,11 @@ import { REQUEST } from '@nestjs/core';
 import type { MiUserListMembership, UserListMembershipsRepository, UserListsRepository } from '@/models/_.js';
 import type { Packed } from '@/misc/json-schema.js';
 import { NoteEntityService } from '@/core/entities/NoteEntityService.js';
-import { NoteStreamingHidingService } from '../NoteStreamingHidingService.js';
 import { DI } from '@/di-symbols.js';
 import { bindThis } from '@/decorators.js';
 import { isRenotePacked, isQuotePacked } from '@/misc/is-renote.js';
 import type { JsonObject } from '@/misc/json-value.js';
+import { NoteStreamingHidingService } from '../NoteStreamingHidingService.js';
 import Channel, { type ChannelRequest } from '../channel.js';
 
 @Injectable({ scope: Scope.TRANSIENT })
@@ -98,7 +98,7 @@ export class UserListChannel extends Channel {
 		// チャンネル投稿は無視する
 		if (note.channelId) return;
 
-		if (this.withFiles && (note.fileIds == null || note.fileIds.length === 0)) return;
+		if (this.withFiles && (note.fileIds == null || note.fileIds.length === 0) && (note.renote?.fileIds == null || note.renote.fileIds.length === 0)) return;
 
 		if (!Object.hasOwn(this.membershipsMap, note.userId)) return;
 
