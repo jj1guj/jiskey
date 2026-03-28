@@ -25,7 +25,7 @@ export class MiUserList {
 	})
 	public isPublic: boolean;
 
-	@Index()
+	@Index('IDX_user_list_withFiles')
 	@Column('boolean', {
 		default: false,
 	})
