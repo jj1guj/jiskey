@@ -58,7 +58,7 @@ export class UserListChannel extends Channel {
 			},
 			select: ['id', 'withFiles'],
 		});
-		if (!list) return;
+		if (!list) return false;
 
 		this.withFiles = !!(params.withFiles) || list.withFiles;
 
