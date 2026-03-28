@@ -19,7 +19,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 </template>
 
 <script lang="ts" setup>
-import { computed, watch, ref, useTemplateRef, onActivated } from 'vue';
+import { computed, watch, ref, onActivated } from 'vue';
 import * as Misskey from 'misskey-js';
 import MkStreamingNotesTimeline from '@/components/MkStreamingNotesTimeline.vue';
 import { misskeyApi } from '@/utility/misskey-api.js';
