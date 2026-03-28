@@ -4342,6 +4342,7 @@ export type components = {
             name: string;
             userIds?: string[];
             isPublic: boolean;
+            withFiles: boolean;
         };
         Achievement: {
             name: components['schemas']['AchievementName'];
@@ -21037,6 +21038,7 @@ export interface operations {
                     blocked?: boolean | null;
                     notResponding?: boolean | null;
                     suspended?: boolean | null;
+                    manuallySuspended?: boolean | null;
                     silenced?: boolean | null;
                     federating?: boolean | null;
                     subscribing?: boolean | null;
@@ -35865,6 +35867,7 @@ export interface operations {
                     listId: string;
                     name?: string;
                     isPublic?: boolean;
+                    withFiles?: boolean;
                 };
             };
         };

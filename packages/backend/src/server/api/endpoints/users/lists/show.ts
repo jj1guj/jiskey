@@ -58,6 +58,7 @@ export const paramDef = {
 	properties: {
 		listId: { type: 'string', format: 'misskey:id' },
 		forPublic: { type: 'boolean', default: false },
+		withFiles: { type: 'boolean', default: false },
 	},
 	required: ['listId'],
 } as const;
