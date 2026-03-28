@@ -34,6 +34,7 @@ const props = defineProps<{
 }>();
 
 const list = ref<Misskey.entities.UserList | null>(null);
+const activatedOnce = ref(false);
 
 watch(() => props.listId, async () => {
 	list.value = await misskeyApi('users/lists/show', {
@@ -42,6 +43,11 @@ watch(() => props.listId, async () => {
 }, { immediate: true });
 
 onActivated(async () => {
+	if (!activatedOnce.value) {
+		activatedOnce.value = true;
+		return;
+	}
+
 	list.value = await misskeyApi('users/lists/show', {
 		listId: props.listId,
 	});
