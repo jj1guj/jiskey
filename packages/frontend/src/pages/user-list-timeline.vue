@@ -8,7 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 	<div class="_spacer" style="--MI_SPACER-w: 800px;">
 		<div :class="$style.tl">
 			<MkStreamingNotesTimeline
-				ref="tlEl" :key="`${listId}-${list?.withFiles}`"
+				ref="tlEl" :key="`${listId}-${(list?.withFiles ?? false)}`"
 				src="list"
 				:list="listId"
 				:sound="true"
