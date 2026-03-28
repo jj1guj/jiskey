@@ -230,7 +230,7 @@ describe('api:notes/create', () => {
 			});
 
 			test('reject poll with too many choices', () => {
-				expect(v({ poll: { choices: ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k'] } }))
+				expect(v({ poll: { choices: Array.from({ length: 101 }, (_, i) => String(i)) } }))
 					.toBe(INVALID);
 			});
 
