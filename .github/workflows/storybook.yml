@@ -16,7 +16,7 @@ jobs:
   build:
     # Chromatic is not likely to be available for fork repositories, so we disable for fork repositories.
     if: github.repository == 'misskey-dev/misskey'
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
 
     env:
       NODE_OPTIONS: "--max_old_space_size=7168"

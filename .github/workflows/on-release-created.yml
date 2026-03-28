@@ -9,7 +9,7 @@ on:
 jobs:
   publish-misskey-js:
     name: Publish misskey-js
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
 
     permissions:
       contents: read

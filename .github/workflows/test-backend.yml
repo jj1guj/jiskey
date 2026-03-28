@@ -29,7 +29,7 @@ on:
 jobs:
   unit:
     name: Unit tests (backend)
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     strategy:
       matrix:
         node-version-file:
@@ -114,7 +114,7 @@ jobs:
 
   e2e:
     name: E2E tests (backend)
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     strategy:
       fail-fast: false
       matrix:
@@ -163,7 +163,7 @@ jobs:
 
   migration:
     name: Migration tests (backend)
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     strategy:
       matrix:
         node-version-file:
