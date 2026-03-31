@@ -31586,10 +31586,7 @@ export interface operations {
                     includeLocalRenotes?: boolean;
                     /** @default true */
                     withRenotes?: boolean;
-                    /**
-                     * @description Only show notes that have attached files.
-                     * @default false
-                     */
+                    /** @description Only show notes that have attached files. */
                     withFiles?: boolean;
                 };
             };
