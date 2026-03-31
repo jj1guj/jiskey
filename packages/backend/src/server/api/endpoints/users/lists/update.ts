@@ -40,6 +40,7 @@ export const paramDef = {
 		listId: { type: 'string', format: 'misskey:id' },
 		name: { type: 'string', minLength: 1, maxLength: 100 },
 		isPublic: { type: 'boolean' },
+		withFiles: { type: 'boolean' },
 	},
 	required: ['listId'],
 } as const;
@@ -65,6 +66,7 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 			await this.userListsRepository.update(userList.id, {
 				name: ps.name,
 				isPublic: ps.isPublic,
+				withFiles: ps.withFiles,
 			});
 
 			return await this.userListEntityService.pack(userList.id);

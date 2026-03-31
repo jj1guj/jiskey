@@ -43,6 +43,7 @@ export class UserListEntityService {
 			name: userList.name,
 			userIds: users.map(x => x.userId),
 			isPublic: userList.isPublic,
+			withFiles: userList.withFiles,
 		};
 	}
 

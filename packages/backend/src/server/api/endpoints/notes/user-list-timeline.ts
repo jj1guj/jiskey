@@ -58,7 +58,6 @@ export const paramDef = {
 		withRenotes: { type: 'boolean', default: true },
 		withFiles: {
 			type: 'boolean',
-			default: false,
 			description: 'Only show notes that have attached files.',
 		},
 	},
@@ -109,6 +108,8 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 				throw new ApiError(meta.errors.noSuchList);
 			}
 
+			const withFiles = ps.withFiles ?? list.withFiles;
+
 			if (!this.serverSettings.enableFanoutTimeline) {
 				const timeline = await this.getFromDb(list, {
 					untilId,
@@ -117,7 +118,7 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 					includeMyRenotes: ps.includeMyRenotes,
 					includeRenotedMyNotes: ps.includeRenotedMyNotes,
 					includeLocalRenotes: ps.includeLocalRenotes,
-					withFiles: ps.withFiles,
+					withFiles,
 					withRenotes: ps.withRenotes,
 				}, me);
 
@@ -133,7 +134,7 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 				allowPartial: ps.allowPartial,
 				me,
 				useDbFallback: this.serverSettings.enableFanoutTimelineDbFallback,
-				redisTimelines: ps.withFiles ? [`userListTimelineWithFiles:${list.id}`] : [`userListTimeline:${list.id}`],
+				redisTimelines: withFiles ? [`userListTimelineWithFiles:${list.id}`] : [`userListTimeline:${list.id}`],
 				alwaysIncludeMyNotes: true,
 				excludePureRenotes: !ps.withRenotes,
 				dbFallback: async (untilId, sinceId, limit) => await this.getFromDb(list, {
@@ -143,7 +144,7 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 					includeMyRenotes: ps.includeMyRenotes,
 					includeRenotedMyNotes: ps.includeRenotedMyNotes,
 					includeLocalRenotes: ps.includeLocalRenotes,
-					withFiles: ps.withFiles,
+					withFiles,
 					withRenotes: ps.withRenotes,
 				}, me),
 			});
@@ -211,6 +212,7 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 
 		// 4. 小さなバッチでノートを取得（大きなJOINを回避）
 		const batchSize = 15; // 一度に15ユーザーずつ処理
+		const fetchLimitPerBatch = Math.max((ps.limit ?? 10) * 3, 50);
 		const allNotes = [];
 
 		for (let i = 0; i < validMembers.length; i += batchSize) {
@@ -218,13 +220,8 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 			const batchUserIds = batch.map(m => m.userId);
 
 			try {
-				const batchNotes = await this.getNotesForUsers(batchUserIds, batch, ps, me, renoteMutedUserIds);
+				const batchNotes = await this.getNotesForUsers(batchUserIds, batch, ps, me, renoteMutedUserIds, fetchLimitPerBatch);
 				allNotes.push(...batchNotes);
-
-				// 十分な数が集まったら終了
-				if (allNotes.length >= (ps.limit ?? 10) * 3) {
-					break;
-				}
 			} catch (error) {
 				continue;
 			}
@@ -285,6 +282,7 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 		},
 		me: MiLocalUser,
 		renoteMutedUserIds: string[],
+		fetchLimit = 50,
 	) {
 		let query = this.notesRepository.createQueryBuilder('note')
 			.innerJoinAndSelect('note.user', 'user')
@@ -350,7 +348,12 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 		}
 
 		if (ps.withFiles) {
-			query = query.andWhere('note.fileIds != \'{}\'');
+			// 添付ファイル付きノートのみを取得するため、リノート先も含めてファイル有無で絞り込む
+			// note.renote は先頭で既に 'renote' エイリアスでJOIN済みのため再JOINしない
+			query = query.andWhere(new Brackets(qb => {
+				qb.where('note.fileIds != \'{}\'')
+					.orWhere('renote.fileIds != \'{}\'');
+			}));
 		}
 
 		// ページング
@@ -363,7 +366,7 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 
 		return query
 			.orderBy('note.id', 'DESC')
-			.limit(50) // 各バッチで最大50件
+			.limit(fetchLimit)
 			.getMany();
 	}
 
