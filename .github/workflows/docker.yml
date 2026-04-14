@@ -131,7 +131,7 @@ jobs:
           provenance: false
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-to: type=gha,mode=min
           outputs: type=image,name=${{ env.REGISTRY_IMAGE }},push-by-digest=true,name-canonical=true,push=true
       - name: Build and Push to GHCR (arm64 staging)
         if: ${{ matrix.platform == 'linux/arm64' }}
@@ -143,7 +143,7 @@ jobs:
           provenance: false
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-to: type=gha,mode=min
           tags: ${{ env.GHCR_IMAGE }}:${{ env.ARM64_TMP_TAG }}
       - name: Export digest
         if: ${{ matrix.platform == 'linux/amd64' }}
