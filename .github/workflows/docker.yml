@@ -1,25 +1,71 @@
-name: Publish Docker image
+name: Publish jiskey Docker image
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - 'jiskey_*'
   workflow_dispatch:
 
 env:
-  REGISTRY_IMAGE: misskey/misskey
-  TAGS: |
-    type=edge
-    type=ref,event=pr
-    type=ref,event=branch
-    type=semver,pattern={{version}}
-    type=semver,pattern={{major}}.{{minor}}
-    type=semver,pattern={{major}}
+  REGISTRY_IMAGE: jj1guj/jiskey
 
 jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Verify tag commit is on master
+        run: |
+          git fetch origin master --no-tags
+          TAG_COMMIT="$(git rev-list -n 1 "$GITHUB_REF")"
+          git merge-base --is-ancestor "$TAG_COMMIT" origin/master
+
+  decide_latest:
+    runs-on: ubuntu-latest
+    outputs:
+      is_latest: ${{ steps.check.outputs.is_latest }}
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Decide whether this tag should update latest
+        id: check
+        run: |
+          git fetch --tags --force
+
+          current="${GITHUB_REF_NAME#jiskey_}"
+
+          # 数値バージョンのみ latest 判定対象
+          if ! echo "$current" | grep -Eq '^[0-9]+(\.[0-9]+)*$'; then
+            echo "is_latest=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          max_version="$(
+            git tag -l 'jiskey_*' \
+              | sed 's/^jiskey_//' \
+              | grep -E '^[0-9]+(\.[0-9]+)*$' \
+              | sort -V \
+              | tail -n1
+          )"
+
+          if [ "$current" = "$max_version" ]; then
+            echo "is_latest=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_latest=false" >> "$GITHUB_OUTPUT"
+          fi
+
   # see https://docs.docker.com/build/ci/github-actions/multi-platform/#distribute-build-across-multiple-runners
   build:
     name: Build
     runs-on: ubuntu-latest
+    needs:
+      - guard
+      - decide_latest
     strategy:
       fail-fast: false
       matrix:
@@ -40,7 +86,9 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY_IMAGE }}
-          tags: ${{ env.TAGS }}
+          tags: |
+            type=match,pattern=^jiskey_([0-9]+(\.[0-9]+)*)$,group=1
+            type=raw,value=latest,enable=${{ needs.decide_latest.outputs.is_latest == 'true' }}
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
@@ -75,6 +123,7 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - build
+      - decide_latest
     steps:
       - name: Download digests
         uses: actions/download-artifact@v7
@@ -89,7 +138,9 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY_IMAGE }}
-          tags: ${{ env.TAGS }}
+          tags: |
+            type=match,pattern=^jiskey_([0-9]+(\.[0-9]+)*)$,group=1
+            type=raw,value=latest,enable=${{ needs.decide_latest.outputs.is_latest == 'true' }}
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
