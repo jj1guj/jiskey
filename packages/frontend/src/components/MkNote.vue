@@ -154,6 +154,9 @@ SPDX-License-Identifier: AGPL-3.0-only
 				<button v-if="prefer.s.showClipButtonInNoteFooter" ref="clipButton" :class="$style.footerButton" class="_button" @mousedown.prevent="clip()">
 					<i class="ti ti-paperclip"></i>
 				</button>
+				<button ref="translateButton" :class="$style.footerButton" class="_button" @mousedown.prevent="console.log('translate')">
+					<i class="ti ti-language-hiragana"></i>
+				</button>
 				<button ref="menuButton" :class="$style.footerButton" class="_button" @mousedown.prevent="showMenu()">
 					<i class="ti ti-dots"></i>
 				</button>
