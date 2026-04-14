@@ -71,16 +71,18 @@ jobs:
   # see https://docs.docker.com/build/ci/github-actions/multi-platform/#distribute-build-across-multiple-runners
   build:
     name: Build
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runs-on }}
     needs:
       - guard
       - decide_latest
     strategy:
       fail-fast: false
       matrix:
-        platform:
-          - linux/amd64
-          - linux/arm64
+        include:
+          - platform: linux/amd64
+            runs-on: ubuntu-latest
+          - platform: linux/arm64
+            runs-on: [self-hosted, Linux, ARM64]
     steps:
       - name: Prepare
         run: |
