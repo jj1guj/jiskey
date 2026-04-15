@@ -90,6 +90,7 @@
 			"minimatch": "10.2.5",
 			"undici": "7.24.0",
 			"picomatch": "4.0.4",
+			"path-to-regexp": "0.1.13",
 			"chokidar": "5.0.0",
 			"lodash": "4.18.1"
 		},
