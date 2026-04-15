@@ -87,7 +87,8 @@ RUN apt-get update \
 
 # add package.json to add pnpm
 COPY ./package.json ./package.json
-RUN node -e "console.log(JSON.parse(require('node:fs').readFileSync('./package.json')).packageManager)" | xargs npm install -g
+RUN npm install -g npm@11.12.1 \
+		&& node -e "console.log(JSON.parse(require('node:fs').readFileSync('./package.json')).packageManager)" | xargs npm install -g
 
 USER misskey
 WORKDIR /misskey
