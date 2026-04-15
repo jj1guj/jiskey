@@ -9,6 +9,7 @@ overrides:
   axios: 1.15.0
   tar: 7.5.13
   minimatch: 10.2.5
+  undici: 7.24.0
   chokidar: 5.0.0
   lodash: 4.18.1
 
@@ -10901,12 +10902,8 @@ packages:
   undici-types@7.16.0:
     resolution: {integrity: sha512-Zz+aZWSj8LE6zoxD+xrjh4VfkIG8Ya6LvYkZqtUQGJPZjYl53ypCaUwWqo7eI0x66KBGeRo+mlBEkMSeSZ38Nw==}
 
-  undici@6.22.0:
-    resolution: {integrity: sha512-hU/10obOIu62MGYjdskASR3CUAiYaFTtC9Pa6vHyf//mAipSvSQg6od2CnJswq7fvzNS3zJhxoRkgNVaHurWKw==}
-    engines: {node: '>=18.17'}
-
-  undici@7.16.0:
-    resolution: {integrity: sha512-QEg3HPMll0o3t2ourKwOeUAZ159Kn9mx5pnzHRQO8+Wixmh88YdZRiIwat0iNzNNXn0yoEtXJqFpyW7eM8BV7g==}
+  undici@7.24.0:
+    resolution: {integrity: sha512-jxytwMHhsbdpBXxLAcuu0fzlQeXCNnWdDyRHpvWsUl8vd98UwYdl9YTyn8/HcpcJPC3pwUveefsa3zTxyD/ERg==}
     engines: {node: '>=20.18.1'}
 
   unicorn-magic@0.3.0:
@@ -12349,7 +12346,7 @@ snapshots:
   '@digitalbazaar/http-client@4.2.0':
     dependencies:
       ky: 1.14.0
-      undici: 6.22.0
+      undici: 7.24.0
 
   '@discordapp/twemoji@16.0.1':
     dependencies:
@@ -12670,7 +12667,7 @@ snapshots:
       fast-querystring: 1.1.2
       fastify-plugin: 5.1.0
       toad-cache: 3.7.0
-      undici: 7.16.0
+      undici: 7.24.0
 
   '@fastify/send@4.1.0':
     dependencies:
@@ -16722,7 +16719,7 @@ snapshots:
       parse5: 7.3.0
       parse5-htmlparser2-tree-adapter: 7.1.0
       parse5-parser-stream: 7.1.2
-      undici: 6.22.0
+      undici: 7.24.0
       whatwg-mimetype: 4.0.0
 
   cheerio@1.1.2:
@@ -16736,7 +16733,7 @@ snapshots:
       parse5: 7.3.0
       parse5-htmlparser2-tree-adapter: 7.1.0
       parse5-parser-stream: 7.1.2
-      undici: 7.16.0
+      undici: 7.24.0
       whatwg-mimetype: 4.0.0
 
   chokidar@5.0.0:
@@ -22518,9 +22515,7 @@ snapshots:
 
   undici-types@7.16.0: {}
 
-  undici@6.22.0: {}
-
-  undici@7.16.0: {}
+  undici@7.24.0: {}
 
   unicorn-magic@0.3.0: {}
 
