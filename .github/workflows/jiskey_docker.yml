@@ -2,6 +2,8 @@ name: Publish jiskey Docker image
 
 on:
   push:
+    branches:
+      - 'jiskey_develop'
     tags:
       - 'jiskey_*'
   workflow_dispatch:
@@ -10,23 +12,6 @@ env:
   REGISTRY_IMAGE: jj1guj/jiskey
 
 jobs:
-  guard:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out the repo
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-      - name: Skip guard for workflow_dispatch
-        if: ${{ github.event_name == 'workflow_dispatch' }}
-        run: echo "Skipping tag ancestry check for workflow_dispatch"
-      - name: Verify tag commit is on master
-        if: ${{ github.event_name == 'push' }}
-        run: |
-          git fetch origin master --no-tags
-          TAG_COMMIT="$(git rev-list -n 1 "$GITHUB_REF")"
-          git merge-base --is-ancestor "$TAG_COMMIT" origin/master
-
   decide_latest:
     runs-on: ubuntu-latest
     outputs:
@@ -40,6 +25,18 @@ jobs:
         id: check
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "is_latest=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "${GITHUB_REF#refs/tags/jiskey_}" = "$GITHUB_REF" ]; then
+            echo "is_latest=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git fetch origin master --no-tags
+          tag_commit="$(git rev-list -n 1 "$GITHUB_REF")"
+          if ! git merge-base --is-ancestor "$tag_commit" origin/master; then
             echo "is_latest=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -73,7 +70,6 @@ jobs:
     name: Build
     runs-on: ${{ matrix.runs-on }}
     needs:
-      - guard
       - decide_latest
     strategy:
       fail-fast: false
@@ -98,9 +94,10 @@ jobs:
         with:
           images: ${{ env.REGISTRY_IMAGE }}
           tags: |
-            type=match,pattern=^jiskey_([0-9]+(\.[0-9]+)*)$,group=1,enable=${{ github.event_name == 'push' }}
+            type=match,pattern=^jiskey_([0-9]+(\.[0-9]+)*)$,group=1,enable=${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/jiskey_') }}
+            type=raw,value=jiskey_develop,enable=${{ github.event_name == 'push' && github.ref == 'refs/heads/jiskey_develop' }}
             type=raw,value=test,enable=${{ github.event_name == 'workflow_dispatch' }}
-            type=raw,value=latest,enable=${{ github.event_name == 'push' && needs.decide_latest.outputs.is_latest == 'true' }}
+            type=raw,value=latest,enable=${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/jiskey_') && needs.decide_latest.outputs.is_latest == 'true' }}
       - name: Log in to Docker Hub
         uses: docker/login-action@v4
         with:
@@ -151,9 +148,10 @@ jobs:
         with:
           images: ${{ env.REGISTRY_IMAGE }}
           tags: |
-            type=match,pattern=^jiskey_([0-9]+(\.[0-9]+)*)$,group=1,enable=${{ github.event_name == 'push' }}
+            type=match,pattern=^jiskey_([0-9]+(\.[0-9]+)*)$,group=1,enable=${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/jiskey_') }}
+            type=raw,value=jiskey_develop,enable=${{ github.event_name == 'push' && github.ref == 'refs/heads/jiskey_develop' }}
             type=raw,value=test,enable=${{ github.event_name == 'workflow_dispatch' }}
-            type=raw,value=latest,enable=${{ github.event_name == 'push' && needs.decide_latest.outputs.is_latest == 'true' }}
+            type=raw,value=latest,enable=${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/jiskey_') && needs.decide_latest.outputs.is_latest == 'true' }}
       - name: Login to Docker Hub
         uses: docker/login-action@v4
         with:
