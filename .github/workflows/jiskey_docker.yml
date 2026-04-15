@@ -36,7 +36,8 @@ jobs:
 
           git fetch origin master --no-tags
           tag_commit="$(git rev-list -n 1 "$GITHUB_REF")"
-          if ! git merge-base --is-ancestor "$tag_commit" origin/master; then
+          master_head="$(git rev-parse origin/master)"
+          if [ "$tag_commit" != "$master_head" ]; then
             echo "is_latest=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
