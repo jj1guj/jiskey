@@ -5,10 +5,10 @@
 ```ts
 
 import type { AuthenticationResponseJSON } from '@simplewebauthn/types';
+import { default as default_2 } from 'reconnecting-websocket';
 import { EventEmitter } from 'eventemitter3';
 import { Options } from 'reconnecting-websocket';
 import type { PublicKeyCredentialRequestOptionsJSON as PublicKeyCredentialRequestOptionsJSON_2 } from '@simplewebauthn/types';
-import _ReconnectingWebSocket from 'reconnecting-websocket';
 
 // Warning: (ae-forgotten-export) The symbol "components" needs to be exported by the entry point index.d.ts
 //
@@ -3881,7 +3881,7 @@ type VerifyEmailRequest = operations['verify-email']['requestBody']['content']['
 // Warnings were encountered during analysis:
 //
 // src/entities.ts:55:2 - (ae-forgotten-export) The symbol "ModerationLogPayloads" needs to be exported by the entry point index.d.ts
-// src/streaming.ts:57:3 - (ae-forgotten-export) The symbol "ReconnectingWebSocket" needs to be exported by the entry point index.d.ts
+// src/streaming.ts:56:3 - (ae-forgotten-export) The symbol "ReconnectingWebSocket" needs to be exported by the entry point index.d.ts
 // src/streaming.types.ts:226:4 - (ae-forgotten-export) The symbol "ReversiUpdateKey" needs to be exported by the entry point index.d.ts
 // src/streaming.types.ts:241:4 - (ae-forgotten-export) The symbol "ReversiUpdateSettings" needs to be exported by the entry point index.d.ts
 
