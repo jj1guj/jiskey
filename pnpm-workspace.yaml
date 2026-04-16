@@ -39,4 +39,3 @@ minimumReleaseAgeExclude:
   - '@fastify/express' # 脆弱性対応。そのうち消す
   - '@fastify/http-proxy' # 脆弱性対応。そのうち消す
   - '@fastify/reply-from' # 脆弱性対応。そのうち消す
-  - axios@1.15.0 # 脆弱性対応。そのうち消す
