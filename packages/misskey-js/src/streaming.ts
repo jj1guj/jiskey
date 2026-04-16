@@ -4,7 +4,7 @@ import type { BroadcastEvents, Channels } from './streaming.types.js';
 
 // コンストラクタとクラスそのものの定義が上手く解決出来ないため再定義
 const ReconnectingWebSocketConstructor = _ReconnectingWebSocket as unknown as typeof _ReconnectingWebSocket.default;
-type ReconnectingWebSocket = _ReconnectingWebSocket.default;
+type ReconnectingWebSocket = import('reconnecting-websocket').default;
 
 export function urlQuery(obj: Record<string, string | number | boolean | undefined>): string {
 	const params = Object.entries(obj)

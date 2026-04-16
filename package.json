@@ -87,7 +87,6 @@
 			"@aiscript-dev/aiscript-languageserver": "-",
 			"axios": "1.15.0",
 			"tar": "7.5.13",
-			"minimatch": "10.2.5",
 			"undici": "7.24.0",
 			"picomatch": "4.0.4",
 			"path-to-regexp": "0.1.13",
