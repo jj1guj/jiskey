@@ -41,3 +41,4 @@ minimumReleaseAgeExclude:
   # Renovate security update: lodash@4.18.1
   - lodash@4.18.1
   - axios@1.15.0 # 脆弱性対応
+  - fastify@5.8.5 # 脆弱性対応
