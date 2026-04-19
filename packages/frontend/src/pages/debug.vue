@@ -7,46 +7,30 @@ SPDX-License-Identifier: AGPL-3.0-only
 <PageWithHeader>
 	<div class="_spacer" style="--MI_SPACER-w: 600px;">
 		<div class="_gaps_m">
-			<MkFolder>
-				<template #label>Icons</template>
+			<MkResult v-if="resultType === 'empty'" type="empty"/>
+			<MkResult v-if="resultType === 'notFound'" type="notFound"/>
+			<MkResult v-if="resultType === 'error'" type="error"/>
+			<MkSelect
+				v-model="resultType" :items="resultTypeDef"
+			></MkSelect>
 
-				<div class="_gaps_m">
-					<MkResult v-if="resultType === 'empty'" type="empty"/>
-					<MkResult v-if="resultType === 'notFound'" type="notFound"/>
-					<MkResult v-if="resultType === 'error'" type="error"/>
-					<MkSelect
-						v-model="resultType" :items="resultTypeDef"
-					></MkSelect>
+			<MkSystemIcon v-if="iconType === 'info'" type="info" style="width: 150px;"/>
+			<MkSystemIcon v-if="iconType === 'question'" type="question" style="width: 150px;"/>
+			<MkSystemIcon v-if="iconType === 'success'" type="success" style="width: 150px;"/>
+			<MkSystemIcon v-if="iconType === 'warn'" type="warn" style="width: 150px;"/>
+			<MkSystemIcon v-if="iconType === 'error'" type="error" style="width: 150px;"/>
+			<MkSystemIcon v-if="iconType === 'waiting'" type="waiting" style="width: 150px;"/>
+			<MkSelect
+				v-model="iconType" :items="iconTypeDef"
+			></MkSelect>
 
-					<MkSystemIcon v-if="iconType === 'info'" type="info" style="width: 150px;"/>
-					<MkSystemIcon v-if="iconType === 'question'" type="question" style="width: 150px;"/>
-					<MkSystemIcon v-if="iconType === 'success'" type="success" style="width: 150px;"/>
-					<MkSystemIcon v-if="iconType === 'warn'" type="warn" style="width: 150px;"/>
-					<MkSystemIcon v-if="iconType === 'error'" type="error" style="width: 150px;"/>
-					<MkSystemIcon v-if="iconType === 'waiting'" type="waiting" style="width: 150px;"/>
-					<MkSelect
-						v-model="iconType" :items="iconTypeDef"
-					></MkSelect>
-
-					<div class="_buttons">
-						<MkButton @click="os.alert({ type: 'error', title: 'Error', text: 'error' })">Error</MkButton>
-						<MkButton @click="os.alert({ type: 'warning', title: 'Warning', text: 'warning' })">Warning</MkButton>
-						<MkButton @click="os.alert({ type: 'info', title: 'Info', text: 'info' })">Info</MkButton>
-						<MkButton @click="os.alert({ type: 'success', title: 'Success', text: 'success' })">Success</MkButton>
-						<MkButton @click="os.alert({ type: 'question', title: 'Question', text: 'question' })">Question</MkButton>
-					</div>
-				</div>
-			</MkFolder>
-
-			<MkFolder>
-				<template #label>Nested menu guard (a.k.a "prediction cone")</template>
-
-				<div class="_buttons">
-					<MkButton @click="select($event, false, false)">select without guard</MkButton>
-					<MkButton @click="select($event, true, false)">select with guard</MkButton>
-					<MkButton @click="select($event, true, true)">select with guard (visualize)</MkButton>
-				</div>
-			</MkFolder>
+			<div class="_buttons">
+				<MkButton @click="os.alert({ type: 'error', title: 'Error', text: 'error' })">Error</MkButton>
+				<MkButton @click="os.alert({ type: 'warning', title: 'Warning', text: 'warning' })">Warning</MkButton>
+				<MkButton @click="os.alert({ type: 'info', title: 'Info', text: 'info' })">Info</MkButton>
+				<MkButton @click="os.alert({ type: 'success', title: 'Success', text: 'success' })">Success</MkButton>
+				<MkButton @click="os.alert({ type: 'question', title: 'Question', text: 'question' })">Question</MkButton>
+			</div>
 		</div>
 	</div>
 </PageWithHeader>
@@ -63,7 +47,6 @@ import MkSelect from '@/components/MkSelect.vue';
 import MkButton from '@/components/MkButton.vue';
 import { useMkSelect } from '@/composables/use-mkselect.js';
 import * as os from '@/os.js';
-import MkFolder from '@/components/MkFolder.vue';
 
 const {
 	model: resultType,
@@ -90,64 +73,6 @@ const {
 	],
 	initialValue: 'info',
 });
-
-function select(ev: PointerEvent, enablePredictionCone: boolean, showPredictionCone: boolean) {
-	os.popupMenu([
-		{ type: 'parent', text: 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX', children: [
-			{ text: 'Option', action: () => {} },
-			{ text: 'Option', action: () => {} },
-			{ text: 'Option', action: () => {} },
-		] },
-		{ type: 'parent', text: 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX', children: [
-			{ text: 'Option', action: () => {} },
-			{ text: 'Option', action: () => {} },
-			{ text: 'Option', action: () => {} },
-			{ text: 'Option', action: () => {} },
-			{ text: 'Option', action: () => {} },
-			{ text: 'Option', action: () => {} },
-			{ text: 'Option', action: () => {} },
-			{ text: 'Option', action: () => {} },
-			{ text: 'Option', action: () => {} },
-		] },
-		{ type: 'parent', text: 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX', children: [
-			{ text: 'Option', action: () => {} },
-			{ text: 'Option', action: () => {} },
-			{ text: 'Option', action: () => {} },
-		] },
-		{ text: 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX', action: () => {} },
-		{ type: 'parent', text: 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX', children: [
-			{ text: 'Option', action: () => {} },
-		] },
-		{ type: 'parent', text: 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX', children: [
-			{ text: 'Option', action: () => {} },
-			{ text: 'Option', action: () => {} },
-			{ text: 'Option', action: () => {} },
-			{ text: 'Option', action: () => {} },
-			{ text: 'Option', action: () => {} },
-		] },
-		{ type: 'parent', text: 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX', children: [
-			{ text: 'Option', action: () => {} },
-			{ text: 'Option', action: () => {} },
-			{ type: 'parent', text: 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX', children: [
-				{ text: 'Option', action: () => {} },
-				{ text: 'Option', action: () => {} },
-				{ text: 'Option', action: () => {} },
-				{ text: 'Option', action: () => {} },
-				{ text: 'Option', action: () => {} },
-			] },
-			{ text: 'Option', action: () => {} },
-			{ text: 'Option', action: () => {} },
-		] },
-		{ type: 'parent', text: 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX', children: [
-			{ text: 'Option', action: () => {} },
-		] },
-	], ev.currentTarget ?? ev.target, {
-		debugDisablePredictionCone: !enablePredictionCone,
-		debugShowPredictionCone: showPredictionCone,
-	}).then((value) => {
-		console.log('Selected:', value);
-	});
-}
 
 definePage(() => ({
 	title: 'DEBUG ROOM',
