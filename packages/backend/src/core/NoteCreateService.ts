@@ -63,10 +63,10 @@ type NotificationType = 'reply' | 'renote' | 'quote' | 'mention';
 class NotificationManager {
 	private notifier: { id: MiUser['id']; };
 	private note: MiNote;
-	private queue: {
+	private queue: Map<MiLocalUser['id'], {
 		target: MiLocalUser['id'];
 		reason: NotificationType;
-	}[];
+	}>;
 
 	constructor(
 		private mutingsRepository: MutingsRepository,
@@ -77,7 +77,7 @@ class NotificationManager {
 	) {
 		this.notifier = notifier;
 		this.note = note;
-		this.queue = [];
+		this.queue = new Map();
 	}
 
 	@bindThis
@@ -85,7 +85,7 @@ class NotificationManager {
 		// 自分自身へは通知しない
 		if (this.notifier.id === notifiee) return;
 
-		const exist = this.queue.find(x => x.target === notifiee);
+		const exist = this.queue.get(notifiee);
 
 		if (exist) {
 			// 「メンションされているかつ返信されている」場合は、メンションとしての通知ではなく返信としての通知にする
@@ -93,7 +93,7 @@ class NotificationManager {
 				exist.reason = reason;
 			}
 		} else {
-			this.queue.push({
+			this.queue.set(notifiee, {
 				reason: reason,
 				target: notifiee,
 			});
@@ -102,44 +102,46 @@ class NotificationManager {
 
 	@bindThis
 	public async notify() {
-		if (this.queue.length === 0) {
+		if (this.queue.size === 0) {
 			return;
 		}
 
-		const targetUserIds = this.queue.map(x => x.target);
-		let visibleUserIds: Set<string>;
+		let visibleUserIds: Set<MiUser['id']> | null;
 
 		switch (this.note.visibility) {
 			case 'public':
 			case 'home':
-				visibleUserIds = new Set(targetUserIds);
+				visibleUserIds = null;
 				break;
 
 			case 'specified':
-				visibleUserIds = new Set(this.note.visibleUserIds.filter(id => targetUserIds.includes(id)));
+				visibleUserIds = new Set(this.note.visibleUserIds);
 				break;
 
-			// TODO: フォロワー限定ノートにフォロワーではない人がメンションされた場合通知されるのが正しい挙動なのか確認（一部に挙動の不一致がありそう）。現状は通知されるためフィルタしない
-			// case 'followers': {
-			// 	const followers = await this.followingsRepository.find({
-			// 		where: {
-			// 			followeeId: this.note.userId,
-			// 			followerId: In(targetUserIds),
-			// 			isFollowerHibernated: false,
-			// 		},
-			// 		select: ['followerId'],
-			// 	});
-			// 	visibleUserIds = new Set(followers.map(f => f.followerId));
-			// 	break;
-			// }
+				// TODO: フォロワー限定ノートにフォロワーではない人がメンションされた場合通知されるのが正しい挙動なのか確認（一部に挙動の不一致がありそう）。現状は通知されるためフィルタしない
+				// case 'followers': {
+				// 	const targetUserIds = this.queue.map(x => x.target);
+				// 	const followers = await this.followingsRepository.find({
+				// 		where: {
+				// 			followeeId: this.note.userId,
+				// 			followerId: In(targetUserIds),
+				// 			isFollowerHibernated: false,
+				// 		},
+				// 		select: ['followerId'],
+				// 	});
+				// 	visibleUserIds = new Set(followers.map(f => f.followerId));
+				// 	break;
+				// }
 
 			default:
 				visibleUserIds = new Set();
 				break;
 		}
 
-		for (const x of this.queue) {
-			if (!visibleUserIds.has(x.target)) {
+		for (const x of this.queue.values()) {
+			const isVisibleToTarget = visibleUserIds === null || visibleUserIds.has(x.target);
+
+			if (!isVisibleToTarget) {
 				continue;
 			}
 
@@ -601,6 +603,8 @@ export class NoteCreateService implements OnApplicationShutdown {
 
 		const note = await this.insertNote(user, data, tags, emojis, mentionedUsers);
 
+		await this.pushToTl(note, user);
+
 		setImmediate('post created', { signal: this.#shutdownController.signal }).then(
 			() => this.postNoteCreated(note, user, data, silent, tags!, mentionedUsers!),
 			() => { /* aborted, ignore this */ },
@@ -743,8 +747,6 @@ export class NoteCreateService implements OnApplicationShutdown {
 
 		// Increment notes count (user)
 		this.incNotesCountOfUser(user);
-
-		this.pushToTl(note, user);
 
 		this.antennaService.addNoteToAntennas({
 			...note,
@@ -1157,7 +1159,7 @@ export class NoteCreateService implements OnApplicationShutdown {
 			}
 		}
 
-		r.exec();
+		await r.exec();
 	}
 
 	@bindThis
