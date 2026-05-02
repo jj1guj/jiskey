@@ -118,20 +118,20 @@ class NotificationManager {
 				visibleUserIds = new Set(this.note.visibleUserIds);
 				break;
 
-			// TODO: フォロワー限定ノートにフォロワーではない人がメンションされた場合通知されるのが正しい挙動なのか確認（一部に挙動の不一致がありそう）。現状は通知されるためフィルタしない
-			// case 'followers': {
-			// 	const targetUserIds = this.queue.map(x => x.target);
-			// 	const followers = await this.followingsRepository.find({
-			// 		where: {
-			// 			followeeId: this.note.userId,
-			// 			followerId: In(targetUserIds),
-			// 			isFollowerHibernated: false,
-			// 		},
-			// 		select: ['followerId'],
-			// 	});
-			// 	visibleUserIds = new Set(followers.map(f => f.followerId));
-			// 	break;
-			// }
+				// TODO: フォロワー限定ノートにフォロワーではない人がメンションされた場合通知されるのが正しい挙動なのか確認（一部に挙動の不一致がありそう）。現状は通知されるためフィルタしない
+				// case 'followers': {
+				// 	const targetUserIds = this.queue.map(x => x.target);
+				// 	const followers = await this.followingsRepository.find({
+				// 		where: {
+				// 			followeeId: this.note.userId,
+				// 			followerId: In(targetUserIds),
+				// 			isFollowerHibernated: false,
+				// 		},
+				// 		select: ['followerId'],
+				// 	});
+				// 	visibleUserIds = new Set(followers.map(f => f.followerId));
+				// 	break;
+				// }
 
 			default:
 				visibleUserIds = new Set();
@@ -603,6 +603,8 @@ export class NoteCreateService implements OnApplicationShutdown {
 
 		const note = await this.insertNote(user, data, tags, emojis, mentionedUsers);
 
+		await this.pushToTl(note, user);
+
 		setImmediate('post created', { signal: this.#shutdownController.signal }).then(
 			() => this.postNoteCreated(note, user, data, silent, tags!, mentionedUsers!),
 			() => { /* aborted, ignore this */ },
@@ -745,8 +747,6 @@ export class NoteCreateService implements OnApplicationShutdown {
 
 		// Increment notes count (user)
 		this.incNotesCountOfUser(user);
-
-		this.pushToTl(note, user);
 
 		this.antennaService.addNoteToAntennas({
 			...note,
@@ -1159,7 +1159,7 @@ export class NoteCreateService implements OnApplicationShutdown {
 			}
 		}
 
-		r.exec();
+		await r.exec();
 	}
 
 	@bindThis
