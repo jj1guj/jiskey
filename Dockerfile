@@ -1,6 +1,6 @@
 # syntax = docker/dockerfile:1.21
 
-ARG NODE_VERSION=22.22.0-bookworm
+ARG NODE_VERSION=24.14.0-bookworm
 
 # build assets & compile TypeScript
 
@@ -46,7 +46,7 @@ RUN rm -rf .git/
 
 # build native dependencies for target platform
 
-FROM --platform=$TARGETPLATFORM node:${NODE_VERSION} AS target-builder
+FROM node:${NODE_VERSION} AS target-builder
 
 RUN apt-get update \
 	&& apt-get install -yqq --no-install-recommends \
@@ -67,9 +67,9 @@ ARG NODE_ENV=production
 RUN node -e "console.log(JSON.parse(require('node:fs').readFileSync('./package.json')).packageManager)" | xargs npm install -g
 
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store,sharing=locked \
-	pnpm i --frozen-lockfile --aggregate-output
+	pnpm i --frozen-lockfile --prod --aggregate-output
 
-FROM --platform=$TARGETPLATFORM node:${NODE_VERSION}-slim AS runner
+FROM node:${NODE_VERSION}-slim AS runner
 
 ARG UID="991"
 ARG GID="991"
@@ -87,7 +87,8 @@ RUN apt-get update \
 
 # add package.json to add pnpm
 COPY ./package.json ./package.json
-RUN node -e "console.log(JSON.parse(require('node:fs').readFileSync('./package.json')).packageManager)" | xargs npm install -g
+RUN npm install -g npm@11.12.1 \
+		&& node -e "console.log(JSON.parse(require('node:fs').readFileSync('./package.json')).packageManager)" | xargs npm install -g
 
 USER misskey
 WORKDIR /misskey
@@ -102,7 +103,6 @@ COPY --chown=misskey:misskey --from=native-builder /misskey/packages/misskey-js/
 COPY --chown=misskey:misskey --from=native-builder /misskey/packages/misskey-reversi/built ./packages/misskey-reversi/built
 COPY --chown=misskey:misskey --from=native-builder /misskey/packages/misskey-bubble-game/built ./packages/misskey-bubble-game/built
 COPY --chown=misskey:misskey --from=native-builder /misskey/packages/backend/built ./packages/backend/built
-COPY --chown=misskey:misskey --from=native-builder /misskey/packages/backend/src-js ./packages/backend/src-js
 COPY --chown=misskey:misskey --from=native-builder /misskey/packages/i18n/built ./packages/i18n/built
 COPY --chown=misskey:misskey --from=native-builder /misskey/fluent-emojis /misskey/fluent-emojis
 COPY --chown=misskey:misskey . ./

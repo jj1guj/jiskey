@@ -1,3 +1,15 @@
+## 2026.5.0
+
+### Client
+- 
+
+### Server
+- 
+
+### Others
+- CIでDockerイメージをビルドするように
+	- docker pull jj1guj/jiskey:latest でpullできるように
+
 ## 2026.3.2
 
 ### Client

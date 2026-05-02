@@ -5,10 +5,10 @@
 ```ts
 
 import type { AuthenticationResponseJSON } from '@simplewebauthn/types';
+import { default as default_2 } from 'reconnecting-websocket';
 import { EventEmitter } from 'eventemitter3';
 import { Options } from 'reconnecting-websocket';
 import type { PublicKeyCredentialRequestOptionsJSON as PublicKeyCredentialRequestOptionsJSON_2 } from '@simplewebauthn/types';
-import _ReconnectingWebSocket from 'reconnecting-websocket';
 
 // Warning: (ae-forgotten-export) The symbol "components" needs to be exported by the entry point index.d.ts
 //
