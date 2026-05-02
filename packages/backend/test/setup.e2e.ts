@@ -7,6 +7,6 @@ import { beforeAll } from 'vitest';
 import { initTestDb, sendEnvResetRequest } from './utils.js';
 
 beforeAll(async () => {
-	await initTestDb(false);
 	await sendEnvResetRequest();
+	await initTestDb(false);
 });
