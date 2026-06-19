@@ -33,22 +33,24 @@ COPY --link ["packages/misskey-bubble-game/package.json", "./packages/misskey-bu
 
 ARG NODE_ENV=production
 
-RUN node -e "console.log(JSON.parse(require('node:fs').readFileSync('./package.json')).packageManager)" | xargs npm install -g
+RUN corepack enable && corepack prepare --activate
 
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store,sharing=locked \
 	pnpm i --frozen-lockfile --aggregate-output
 
 COPY --link . ./
 
-RUN git submodule update --init
 RUN pnpm build
-RUN rm -rf .git/
 
 # build native dependencies for target platform
 
 FROM node:${NODE_VERSION} AS target-builder
 
-RUN apt-get update \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+	--mount=type=cache,target=/var/lib/apt,sharing=locked \
+	rm -f /etc/apt/apt.conf.d/docker-clean \
+	; echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache \
+	&& apt-get update \
 	&& apt-get install -yqq --no-install-recommends \
 	build-essential
 
@@ -64,10 +66,15 @@ COPY --link ["packages/misskey-bubble-game/package.json", "./packages/misskey-bu
 
 ARG NODE_ENV=production
 
-RUN node -e "console.log(JSON.parse(require('node:fs').readFileSync('./package.json')).packageManager)" | xargs npm install -g
+RUN corepack enable && corepack prepare --activate
 
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store,sharing=locked \
-	pnpm i --frozen-lockfile --prod --aggregate-output
+    pnpm i --frozen-lockfile --prod --aggregate-output \
+    && find node_modules -name "*.md" -o -name "*.map" -o -name "*.ts" ! -name "*.d.ts" \
+        -o -name "CHANGELOG*" -o -name "AUTHORS*" -o -name "CONTRIBUTORS*" \
+        -o -name ".travis.yml" -o -name ".eslintrc*" -o -name ".prettierrc*" \
+        -o -name "Makefile" -o -name "*.gyp" -o -name "*.gypi" \
+        | xargs rm -f 2>/dev/null; true
 
 FROM node:${NODE_VERSION}-slim AS runner
 
@@ -76,21 +83,22 @@ ARG GID="991"
 
 ENV PNPM_CONFIG_VERIFY_DEPS_BEFORE_RUN=false
 
-RUN apt-get update \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+	--mount=type=cache,target=/var/lib/apt,sharing=locked \
+	rm -f /etc/apt/apt.conf.d/docker-clean \
+	; echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache \
+	&& apt-get update \
 	&& apt-get install -y --no-install-recommends \
-	ffmpeg tini curl libjemalloc-dev libjemalloc2 \
+	ffmpeg tini curl libjemalloc2 \
 	&& ln -s /usr/lib/$(uname -m)-linux-gnu/libjemalloc.so.2 /usr/local/lib/libjemalloc.so \
 	&& groupadd -g "${GID}" misskey \
 	&& useradd -l -u "${UID}" -g "${GID}" -m -d /misskey misskey \
 	&& find / -type d -path /sys -prune -o -type d -path /proc -prune -o -type f -perm /u+s -ignore_readdir_race -exec chmod u-s {} \; \
-	&& find / -type d -path /sys -prune -o -type d -path /proc -prune -o -type f -perm /g+s -ignore_readdir_race -exec chmod g-s {} \; \
-	&& apt-get clean \
-	&& rm -rf /var/lib/apt/lists
+	&& find / -type d -path /sys -prune -o -type d -path /proc -prune -o -type f -perm /g+s -ignore_readdir_race -exec chmod g-s {} \;
 
 # add package.json to add pnpm
 COPY ./package.json ./package.json
-RUN npm install -g npm@11.12.1 \
-		&& node -e "console.log(JSON.parse(require('node:fs').readFileSync('./package.json')).packageManager)" | xargs npm install -g
+RUN corepack enable && corepack prepare --activate
 
 USER misskey
 WORKDIR /misskey
