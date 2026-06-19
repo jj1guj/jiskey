@@ -69,12 +69,14 @@ ARG NODE_ENV=production
 RUN corepack enable && corepack prepare --activate
 
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store,sharing=locked \
-    pnpm i --frozen-lockfile --prod --aggregate-output \
-    && find node_modules -name "*.md" -o -name "*.map" -o -name "*.ts" ! -name "*.d.ts" \
-        -o -name "CHANGELOG*" -o -name "AUTHORS*" -o -name "CONTRIBUTORS*" \
-        -o -name ".travis.yml" -o -name ".eslintrc*" -o -name ".prettierrc*" \
-        -o -name "Makefile" -o -name "*.gyp" -o -name "*.gypi" \
-        | xargs rm -f 2>/dev/null; true
+	pnpm i --frozen-lockfile --prod --aggregate-output \
+	&& find node_modules -name "*.md" -o -name "*.map" -o -name "*.ts" ! -name "*.d.ts" \
+	-o -name "CHANGELOG*" -o -name "AUTHORS*" -o -name "CONTRIBUTORS*" \
+	-o -name ".travis.yml" -o -name ".eslintrc*" -o -name ".prettierrc*" \
+	-o -name "Makefile" -o -name "*.gyp" -o -name "*.gypi" \
+	| xargs rm -f 2>/dev/null; true \
+	&& rm -rf node_modules/.pnpm/onnxruntime-node@*/node_modules/onnxruntime-node/bin/napi-v6/darwin \
+	node_modules/.pnpm/onnxruntime-node@*/node_modules/onnxruntime-node/bin/napi-v6/win32
 
 FROM node:${NODE_VERSION}-slim AS runner
 
