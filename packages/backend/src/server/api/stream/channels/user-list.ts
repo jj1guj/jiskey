@@ -56,7 +56,7 @@ export class UserListChannel extends Channel {
 				id: this.listId,
 				userId: this.user!.id,
 			},
-			select: ['id', 'withFiles'],
+			select: { id: true, withFiles: true },
 		});
 		if (!list) return false;
 
@@ -79,7 +79,7 @@ export class UserListChannel extends Channel {
 			where: {
 				userListId: this.listId,
 			},
-			select: ['userId'],
+			select: { userId: true },
 		});
 
 		const membershipsMap: Record<string, Pick<MiUserListMembership, 'withReplies'> | undefined> = {};
