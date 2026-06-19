@@ -40,9 +40,7 @@ RUN --mount=type=cache,target=/root/.local/share/pnpm/store,sharing=locked \
 
 COPY --link . ./
 
-RUN git submodule update --init \
-	&& pnpm build \
-	&& rm -rf .git/
+RUN pnpm build
 
 # build native dependencies for target platform
 

@@ -1,5 +1,7 @@
 .autogen
+.git
 .github
+.gitmodules
 .travis
 .vscode
 .config
