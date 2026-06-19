@@ -71,7 +71,12 @@ ARG NODE_ENV=production
 RUN node -e "console.log(JSON.parse(require('node:fs').readFileSync('./package.json')).packageManager)" | xargs npm install -g
 
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store,sharing=locked \
-	pnpm i --frozen-lockfile --prod --aggregate-output
+    pnpm i --frozen-lockfile --prod --aggregate-output \
+    && find node_modules -name "*.md" -o -name "*.map" -o -name "*.ts" ! -name "*.d.ts" \
+        -o -name "CHANGELOG*" -o -name "AUTHORS*" -o -name "CONTRIBUTORS*" \
+        -o -name ".travis.yml" -o -name ".eslintrc*" -o -name ".prettierrc*" \
+        -o -name "Makefile" -o -name "*.gyp" -o -name "*.gypi" \
+        | xargs rm -f 2>/dev/null; true
 
 FROM node:${NODE_VERSION}-slim AS runner
 
