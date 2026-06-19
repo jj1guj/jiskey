@@ -187,7 +187,7 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 		// 1. ユーザーリストのメンバーを取得（小さなクエリ）
 		const listMembers = await this.userListMembershipsRepository.find({
 			where: { userListId: list.id },
-			select: ['userId', 'withReplies'],
+			select: { userId: true, withReplies: true },
 			cache: 30000, // 30秒キャッシュ
 		});
 
@@ -238,7 +238,7 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 	private async getMutedUsers(userId: string): Promise<string[]> {
 		const result = await this.mutingsRepository.find({
 			where: { muterId: userId },
-			select: ['muteeId'],
+			select: { muteeId: true },
 			cache: 60000,
 		});
 		return result.map((r: { muteeId: string }) => r.muteeId);
@@ -247,7 +247,7 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 	private async getBlockedUsers(userId: string): Promise<string[]> {
 		const result = await this.blockingsRepository.find({
 			where: { blockerId: userId },
-			select: ['blockeeId'],
+			select: { blockeeId: true },
 			cache: 60000,
 		});
 		return result.map((r: { blockeeId: string }) => r.blockeeId);
@@ -257,7 +257,7 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 		try {
 			const result = await this.renoteMutingsRepository.find({
 				where: { muterId: userId },
-				select: ['muteeId'],
+				select: { muteeId: true },
 				cache: 60000,
 			});
 			return result.map((r: { muteeId: string }) => r.muteeId);
