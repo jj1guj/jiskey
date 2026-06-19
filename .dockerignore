@@ -31,3 +31,19 @@ fluent-emojis/
 .idea/
 packages/*/.vscode/
 packages/backend/test/compose.yml
+
+# テスト・CI関連
+cypress/
+.claude/
+.agents/
+CLAUDE.md
+AGENTS.md
+
+# デザインファイル
+assets/
+
+# Helm chart
+chart/
+
+# IDE設定
+idea/
