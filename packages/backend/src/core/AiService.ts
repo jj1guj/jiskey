@@ -3,92 +3,88 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-import * as fs from 'node:fs';
-import { pathToFileURL } from 'node:url';
-import { resolve } from 'node:path';
-import { Injectable, Inject } from '@nestjs/common';
-import { Mutex } from 'async-mutex';
-import fetch from 'node-fetch';
-import { DI } from '@/di-symbols.js';
-import { bindThis } from '@/decorators.js';
-import type { Config } from '@/config.js';
-import type { NSFWJS, PredictionType } from 'nsfwjs/core';
+import * as fs from "node:fs";
+import { resolve } from "node:path";
+import { Injectable, Inject } from "@nestjs/common";
+import { Mutex } from "async-mutex";
+import sharp from "sharp";
+import { DI } from "@/di-symbols.js";
+import { bindThis } from "@/decorators.js";
+import type { Config } from "@/config.js";
 
-const REQUIRED_CPU_FLAGS_X64 = ['avx2', 'fma'];
-let isSupportedCpu: undefined | boolean = undefined;
+const CLASS_NAMES = ["Drawing", "Hentai", "Neutral", "Porn", "Sexy"] as const;
+
+export type PredictionType = {
+	className: (typeof CLASS_NAMES)[number];
+	probability: number;
+};
 
 @Injectable()
 export class AiService {
-	private readonly modelDir: string;
-	private model: NSFWJS;
+	private readonly modelPath: string;
+	private session: import("onnxruntime-node").InferenceSession | null = null;
 	private modelLoadMutex: Mutex = new Mutex();
 
 	constructor(
 		@Inject(DI.config)
 		private config: Config,
 	) {
-		const md = resolve(this.config.rootDir, 'packages/backend/nsfw-model');
-		this.modelDir = md.endsWith('/') ? md : md + '/';
+		this.modelPath = resolve(
+			this.config.rootDir,
+			"packages/backend/nsfw-model/nsfw_model.onnx",
+		);
 	}
 
 	@bindThis
-	public async detectSensitive(source: string | Buffer): Promise<PredictionType[] | null> {
+	public async detectSensitive(
+		source: string | Buffer,
+	): Promise<PredictionType[] | null> {
 		try {
-			if (isSupportedCpu === undefined) {
-				isSupportedCpu = await this.computeIsSupportedCpu();
-			}
+			const ort = await import("onnxruntime-node");
 
-			if (!isSupportedCpu) {
-				console.error('This CPU cannot use TensorFlow.');
-				return null;
-			}
-
-			const tf = await import('@tensorflow/tfjs-node');
-			tf.env().global.fetch = fetch;
-
-			if (this.model == null) {
-				const nsfw = await import('nsfwjs/core');
+			if (this.session == null) {
 				await this.modelLoadMutex.runExclusive(async () => {
-					if (this.model == null) {
-						this.model = await nsfw.load(pathToFileURL(this.modelDir).toString(), { size: 299 });
+					if (this.session == null) {
+						this.session = await ort.InferenceSession.create(this.modelPath);
 					}
 				});
 			}
 
-			const buffer = source instanceof Buffer ? source : await fs.promises.readFile(source);
-			const image = await tf.node.decodeImage(buffer, 3) as any;
-			try {
-				const predictions = await this.model.classify(image);
-				return predictions;
-			} finally {
-				image.dispose();
+			const buffer =
+				source instanceof Buffer ? source : await fs.promises.readFile(source);
+			const { data } = await sharp(buffer)
+				.resize(299, 299)
+				.removeAlpha()
+				.raw()
+				.toBuffer({ resolveWithObject: true });
+
+			const floatData = new Float32Array(1 * 299 * 299 * 3);
+			for (let i = 0; i < data.length; i++) {
+				floatData[i] = data[i] / 255.0;
 			}
+
+			const inputTensor = new ort.Tensor(
+				"float32",
+				floatData,
+				[1, 299, 299, 3],
+			);
+			const results = await this.session!.run({
+				[this.session!.inputNames[0]]: inputTensor,
+			});
+			const outputData = results[this.session!.outputNames[0]]
+				.data as Float32Array;
+
+			const predictions: PredictionType[] = CLASS_NAMES.map((className, i) => ({
+				className,
+				probability: outputData[i],
+			}));
+
+			predictions.sort((a, b) => b.probability - a.probability);
+
+			return predictions;
 		} catch (err) {
 			console.error(err);
 			return null;
 		}
-	}
-
-	private async computeIsSupportedCpu(): Promise<boolean> {
-		switch (process.arch) {
-			case 'x64': {
-				const cpuFlags = await this.getCpuFlags();
-				return REQUIRED_CPU_FLAGS_X64.every(required => cpuFlags.includes(required));
-			}
-			case 'arm64': {
-				// As far as I know, no required CPU flags for ARM64.
-				return true;
-			}
-			default: {
-				return false;
-			}
-		}
-	}
-
-	@bindThis
-	private async getCpuFlags(): Promise<string[]> {
-		const si = await import('systeminformation');
-		const str = await si.cpuFlags();
-		return str.split(/\s+/);
 	}
 }

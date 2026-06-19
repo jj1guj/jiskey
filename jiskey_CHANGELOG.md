@@ -5,6 +5,7 @@
 
 ### Server
 - Dockerイメージ容量を削減
+- NSFW検出をTensorFlow.jsからONNX Runtimeに移行
 
 ### Others
 - 

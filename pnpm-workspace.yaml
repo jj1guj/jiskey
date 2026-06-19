@@ -19,7 +19,6 @@ allowBuilds:
   '@tensorflow/tfjs-node': true
   bufferutil: true
   canvas: true
-  core-js: true
   cypress: true
   esbuild: true
   msgpackr-extract: true
@@ -31,6 +30,7 @@ allowBuilds:
   v-code-diff: true
   vue-demi: true
   exifreader: false
+  onnxruntime-node: true
 minimumReleaseAge: 10080 # delay 7days to mitigate supply-chain attack
 minimumReleaseAgeExclude:
   - '@misskey-dev/*'
