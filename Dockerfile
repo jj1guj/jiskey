@@ -35,7 +35,6 @@ ARG NODE_ENV=production
 
 RUN corepack enable && corepack prepare --activate
 
-ENV ONNXRUNTIME_NODE_INSTALL=skip
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store,sharing=locked \
 	pnpm i --frozen-lockfile --aggregate-output
 
@@ -69,7 +68,6 @@ ARG NODE_ENV=production
 
 RUN corepack enable && corepack prepare --activate
 
-ENV ONNXRUNTIME_NODE_INSTALL=skip
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store,sharing=locked \
     pnpm i --frozen-lockfile --prod --aggregate-output \
     && find node_modules -name "*.md" -o -name "*.map" -o -name "*.ts" ! -name "*.d.ts" \
