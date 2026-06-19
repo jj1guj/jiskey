@@ -217,24 +217,20 @@ export class FileInfoService {
 			if (
 				(result.find((x) => x.className === "Sexy")?.probability ?? 0) >
 				sensitiveThreshold
-			)
-				sensitive = true;
+			) sensitive = true;
 			if (
 				(result.find((x) => x.className === "Hentai")?.probability ?? 0) >
 				sensitiveThreshold
-			)
-				sensitive = true;
+			) sensitive = true;
 			if (
 				(result.find((x) => x.className === "Porn")?.probability ?? 0) >
 				sensitiveThreshold
-			)
-				sensitive = true;
+			) sensitive = true;
 
 			if (
 				(result.find((x) => x.className === "Porn")?.probability ?? 0) >
 				sensitiveThresholdForPorn
-			)
-				porn = true;
+			) porn = true;
 
 			return [sensitive, porn];
 		}
