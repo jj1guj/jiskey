@@ -3,9 +3,9 @@ name: Publish jiskey Docker image
 on:
   push:
     branches:
-      - 'jiskey_develop'
+      - "jiskey_develop"
     tags:
-      - 'jiskey_*'
+      - "jiskey_*"
   workflow_dispatch:
 
 env:
@@ -89,6 +89,18 @@ jobs:
         uses: actions/checkout@v6.0.2
         with:
           submodules: true
+      - name: Cleanup old buildx caches
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Deleting old buildx caches..."
+          gh actions-cache list --repo ${{ github.repository }} \
+            --key "buildkit-" --order asc --sort last-used \
+            --json key -q '.[].key' \
+            | while read -r key; do
+                echo "Deleting: $key"
+                gh actions-cache delete "$key" --repo ${{ github.repository }} --confirm || true
+              done
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
       - name: Docker meta
