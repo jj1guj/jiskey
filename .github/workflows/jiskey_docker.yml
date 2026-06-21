@@ -94,12 +94,12 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "Deleting old buildx caches..."
-          gh actions-cache list --repo ${{ github.repository }} \
+          gh cache list --repo ${{ github.repository }} \
             --key "buildkit-" --order asc --sort last-used \
             --json key -q '.[].key' \
             | while read -r key; do
                 echo "Deleting: $key"
-                gh actions-cache delete "$key" --repo ${{ github.repository }} --confirm || true
+                gh cache delete "$key" --repo ${{ github.repository }} --confirm || true
               done
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
