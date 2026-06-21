@@ -89,18 +89,50 @@ jobs:
         uses: actions/checkout@v6.0.2
         with:
           submodules: true
-      # - name: Cleanup old buildx caches
-      #   env:
-      #     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #   run: |
-      #     echo "Deleting old buildx caches..."
-      #     gh cache list --repo ${{ github.repository }} \
-      #       --key "buildkit-" --order asc --sort last_accessed_at \
-      #       --json key -q '.[].key' \
-      #       | while read -r key; do
-      #           echo "Deleting: $key"
-      #           gh cache delete "$key" --repo ${{ github.repository }} || true
-      #         done
+      - name: Cleanup buildx caches
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          REPO="${{ github.repository }}"
+          DEFAULT_BRANCH="jiskey_develop"
+          KEEP=40
+
+          CACHES=$(gh cache list --repo "$REPO" \
+            --key "buildkit-" --limit 200 \
+            --json key,ref,lastAccessedAt \
+            --order desc --sort last_accessed_at)
+
+          echo "$CACHES" | jq -r '.[].ref' | sort -u | while read -r ref; do
+            branch="${ref#refs/heads/}"
+
+            if [ "$branch" = "$DEFAULT_BRANCH" ]; then
+              echo "Pruning old caches for default branch: $branch"
+              echo "$CACHES" | jq -r --arg ref "$ref" \
+                '[.[] | select(.ref == $ref)] | sort_by(.lastAccessedAt) | reverse
+                 | .['"$KEEP"':] | .[].key' \
+                | while read -r key; do
+                      echo "  Deleting: $key"
+                      gh cache delete "$key" --repo "$REPO" || true
+                    done
+            elif gh api "repos/$REPO/git/ref/heads/$branch" --silent 2>/dev/null; then
+              echo "Pruning old caches for branch: $branch"
+              echo "$CACHES" | jq -r --arg ref "$ref" \
+                '[.[] | select(.ref == $ref)] | sort_by(.lastAccessedAt) | reverse
+                 | .['"$KEEP"':] | .[].key' \
+                | while read -r key; do
+                      echo "  Deleting: $key"
+                      gh cache delete "$key" --repo "$REPO" || true
+                    done
+            else
+              echo "Deleting all caches for dead branch: $branch"
+              echo "$CACHES" | jq -r --arg ref "$ref" \
+                '.[] | select(.ref == $ref) | .key' \
+                | while read -r key; do
+                      echo "  Deleting: $key"
+                      gh cache delete "$key" --repo "$REPO" || true
+                    done
+            fi
+          done
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
       - name: Docker meta
