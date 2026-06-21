@@ -5,6 +5,7 @@
 
 ### Server
 - Dockerイメージ容量を削減
+- DockerイメージビルドのCIが遅い問題を修正
 
 ### Others
 - 
