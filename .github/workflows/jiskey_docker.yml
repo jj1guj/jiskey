@@ -89,18 +89,18 @@ jobs:
         uses: actions/checkout@v6.0.2
         with:
           submodules: true
-      - name: Cleanup old buildx caches
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          echo "Deleting old buildx caches..."
-          gh cache list --repo ${{ github.repository }} \
-            --key "buildkit-" --order asc --sort last_accessed_at \
-            --json key -q '.[].key' \
-            | while read -r key; do
-                echo "Deleting: $key"
-                gh cache delete "$key" --repo ${{ github.repository }} || true
-              done
+      # - name: Cleanup old buildx caches
+      #   env:
+      #     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   run: |
+      #     echo "Deleting old buildx caches..."
+      #     gh cache list --repo ${{ github.repository }} \
+      #       --key "buildkit-" --order asc --sort last_accessed_at \
+      #       --json key -q '.[].key' \
+      #       | while read -r key; do
+      #           echo "Deleting: $key"
+      #           gh cache delete "$key" --repo ${{ github.repository }} || true
+      #         done
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
       - name: Docker meta
@@ -130,7 +130,7 @@ jobs:
           provenance: false
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=buildkit-${{ env.PLATFORM_PAIR }}
-          cache-to: type=gha,scope=buildkit-${{ env.PLATFORM_PAIR }},mode=min
+          cache-to: type=gha,scope=buildkit-${{ env.PLATFORM_PAIR }},mode=max
           outputs: type=image,name=${{ env.REGISTRY_IMAGE }},push-by-digest=true,name-canonical=true,push=true
       - name: Export digest
         run: |
