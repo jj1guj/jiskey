@@ -98,7 +98,7 @@ jobs:
           KEEP=40
 
           CACHES=$(gh cache list --repo "$REPO" \
-            --key "buildkit-" --limit 200 \
+            --key "buildkit-${PLATFORM_PAIR}" --limit 200 \
             --json key,ref,lastAccessedAt \
             --order desc --sort last_accessed_at)
 
