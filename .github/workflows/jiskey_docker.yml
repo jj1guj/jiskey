@@ -95,7 +95,7 @@ jobs:
         run: |
           REPO="${{ github.repository }}"
           DEFAULT_BRANCH="jiskey_develop"
-          KEEP=80
+          KEEP=40
 
           CACHES=$(gh cache list --repo "$REPO" \
             --key "buildkit-" --limit 200 \
@@ -162,7 +162,7 @@ jobs:
           provenance: false
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=buildkit-${{ env.PLATFORM_PAIR }}
-          cache-to: type=gha,scope=buildkit-${{ env.PLATFORM_PAIR }},mode=max
+          cache-to: type=gha,scope=buildkit-${{ env.PLATFORM_PAIR }},mode=min
           outputs: type=image,name=${{ env.REGISTRY_IMAGE }},push-by-digest=true,name-canonical=true,push=true
       - name: Export digest
         run: |
