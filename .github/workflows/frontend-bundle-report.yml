@@ -82,7 +82,7 @@ jobs:
 
       - name: Install dependencies for base
         working-directory: before
-        run: pnpm i --frozen-lockfile
+        run: pnpm i --no-frozen-lockfile
 
       - name: Build frontend dependencies for base
         working-directory: before
