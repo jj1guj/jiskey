@@ -63,6 +63,7 @@ jobs:
             cp after/packages/frontend/package.json before/packages/frontend/package.json
             cp after/packages/frontend/vite.config.ts before/packages/frontend/vite.config.ts
             cp after/pnpm-lock.yaml before/pnpm-lock.yaml
+            cp after/pnpm-workspace.yaml before/pnpm-workspace.yaml
           fi
 
       - name: Setup pnpm
