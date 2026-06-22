@@ -95,10 +95,10 @@ jobs:
         run: |
           REPO="${{ github.repository }}"
           DEFAULT_BRANCH="jiskey_develop"
-          KEEP=40
+          KEEP=80
 
           CACHES=$(gh cache list --repo "$REPO" \
-            --key "buildkit-${PLATFORM_PAIR}" --limit 200 \
+            --key "buildkit-" --limit 200 \
             --json key,ref,lastAccessedAt \
             --order desc --sort last_accessed_at)
 
