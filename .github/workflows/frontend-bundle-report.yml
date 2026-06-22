@@ -63,7 +63,6 @@ jobs:
             cp after/packages/frontend/package.json before/packages/frontend/package.json
             cp after/packages/frontend/vite.config.ts before/packages/frontend/vite.config.ts
             cp after/pnpm-lock.yaml before/pnpm-lock.yaml
-            cp after/pnpm-workspace.yaml before/pnpm-workspace.yaml
           fi
 
       - name: Setup pnpm
@@ -94,7 +93,7 @@ jobs:
       - name: Build frontend report for base
         working-directory: before
         env:
-          FRONTEND_BUNDLE_VISUALIZER: 'true'
+          FRONTEND_BUNDLE_VISUALIZER: "true"
           FRONTEND_BUNDLE_VISUALIZER_TEMPLATE: raw-data
           FRONTEND_BUNDLE_VISUALIZER_FILE: ${{ runner.temp }}/frontend-bundle-report/before-stats.json
         run: pnpm --filter frontend run build
@@ -110,7 +109,7 @@ jobs:
       - name: Build frontend report for pull request
         working-directory: after
         env:
-          FRONTEND_BUNDLE_VISUALIZER: 'true'
+          FRONTEND_BUNDLE_VISUALIZER: "true"
           FRONTEND_BUNDLE_VISUALIZER_TEMPLATE: raw-data
           FRONTEND_BUNDLE_VISUALIZER_FILE: ${{ runner.temp }}/frontend-bundle-report/after-stats.json
         run: pnpm --filter frontend run build
