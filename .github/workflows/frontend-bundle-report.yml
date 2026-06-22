@@ -62,7 +62,6 @@ jobs:
           if ! grep -q 'FRONTEND_BUNDLE_VISUALIZER' before/packages/frontend/vite.config.ts; then
             cp after/packages/frontend/package.json before/packages/frontend/package.json
             cp after/packages/frontend/vite.config.ts before/packages/frontend/vite.config.ts
-            cp after/pnpm-lock.yaml before/pnpm-lock.yaml
           fi
 
       - name: Setup pnpm
