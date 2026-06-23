@@ -1,3 +1,14 @@
+## 2026.6.1
+
+### Client
+- 
+
+### Server
+- NSFW検出をTensorFlow.jsからONNX Runtimeに移行
+
+### Others
+- 
+
 ## 2026.6.0
 
 ### Client
@@ -5,7 +16,6 @@
 
 ### Server
 - Dockerイメージ容量を削減
-- NSFW検出をTensorFlow.jsからONNX Runtimeに移行
 
 ### Others
 - 
