@@ -3,16 +3,16 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-import * as fs from "node:fs";
-import { resolve } from "node:path";
-import { Injectable, Inject } from "@nestjs/common";
-import { Mutex } from "async-mutex";
-import sharp from "sharp";
-import { DI } from "@/di-symbols.js";
-import { bindThis } from "@/decorators.js";
-import type { Config } from "@/config.js";
+import * as fs from 'node:fs';
+import { resolve } from 'node:path';
+import { Injectable, Inject } from '@nestjs/common';
+import { Mutex } from 'async-mutex';
+import sharp from 'sharp';
+import { DI } from '@/di-symbols.js';
+import { bindThis } from '@/decorators.js';
+import type { Config } from '@/config.js';
 
-const CLASS_NAMES = ["Drawing", "Hentai", "Neutral", "Porn", "Sexy"] as const;
+const CLASS_NAMES = ['Drawing', 'Hentai', 'Neutral', 'Porn', 'Sexy'] as const;
 
 export type PredictionType = {
 	className: (typeof CLASS_NAMES)[number];
@@ -22,7 +22,7 @@ export type PredictionType = {
 @Injectable()
 export class AiService {
 	private readonly modelPath: string;
-	private session: import("onnxruntime-node").InferenceSession | null = null;
+	private session: import('onnxruntime-node').InferenceSession | null = null;
 	private modelLoadMutex: Mutex = new Mutex();
 
 	constructor(
@@ -31,7 +31,7 @@ export class AiService {
 	) {
 		this.modelPath = resolve(
 			this.config.rootDir,
-			"packages/backend/nsfw-model/nsfw_model.onnx",
+			'packages/backend/nsfw-model/nsfw_model.onnx',
 		);
 	}
 
@@ -40,7 +40,7 @@ export class AiService {
 		source: string | Buffer,
 	): Promise<PredictionType[] | null> {
 		try {
-			const ort = await import("onnxruntime-node");
+			const ort = await import('onnxruntime-node');
 
 			if (this.session == null) {
 				await this.modelLoadMutex.runExclusive(async () => {
@@ -64,7 +64,7 @@ export class AiService {
 			}
 
 			const inputTensor = new ort.Tensor(
-				"float32",
+				'float32',
 				floatData,
 				[1, 299, 299, 3],
 			);
