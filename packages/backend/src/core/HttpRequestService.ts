@@ -475,7 +475,7 @@ export class HttpRequestService {
 			validators: [],
 		},
 	): Promise<Response> {
-		const timeout = args.timeout ?? 5000;
+		const timeout = args.timeout ?? 20000;
 
 		const controller = new AbortController();
 		setTimeout(() => {
