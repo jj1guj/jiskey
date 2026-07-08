@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
+import * as dns from 'node:dns';
 import * as http from 'node:http';
 import * as https from 'node:https';
 import * as net from 'node:net';
@@ -12,10 +13,12 @@ import CacheableLookup from 'cacheable-lookup';
 import fetch from 'node-fetch';
 import { HttpProxyAgent, HttpsProxyAgent } from 'hpagent';
 import { Inject, Injectable } from '@nestjs/common';
+import * as Redis from 'ioredis';
 import { DI } from '@/di-symbols.js';
 import type { Config } from '@/config.js';
 import { StatusError } from '@/misc/status-error.js';
 import { bindThis } from '@/decorators.js';
+import { ResolverWithStale } from '@/core/ResolverWithStale.js';
 import { validateContentTypeSetAsActivityPub } from '@/core/activitypub/misc/validator.js';
 import { assertActivityMatchesUrl, FetchAllowSoftFailMask } from '@/core/activitypub/misc/check-against-url.js';
 import type { IObject } from '@/core/activitypub/type.js';
@@ -27,6 +30,56 @@ export type HttpRequestSendOptions = {
 	validators?: ((res: Response) => void)[];
 };
 
+// ソケット再利用の遊休時間バケット
+type IdleBuckets = {
+	under30s: number;
+	'30to90s': number;
+	'90to300s': number;
+	over300s: number;
+};
+
+// ソケット計測の共有カウンタ(プロセスローカル)
+const socketStats = {
+	newConnections: 0,
+	reusedConnections: 0,
+	idleBuckets: { under30s: 0, '30to90s': 0, '90to300s': 0, over300s: 0 } as IdleBuckets,
+	// 直近に再利用ソケットで接続したホスト(失敗ログとの照合用)
+	recentReuseHosts: new Set<string>(),
+};
+
+/** ソケット統計を取得する(DeliverProcessorService等から参照) */
+export function getSocketStats() {
+	return socketStats;
+}
+
+function classifyIdleTime(idleMs: number, buckets: IdleBuckets): void {
+	if (idleMs < 30_000) buckets.under30s++;
+	else if (idleMs < 90_000) buckets['30to90s']++;
+	else if (idleMs < 300_000) buckets['90to300s']++;
+	else buckets.over300s++;
+}
+
+// 死んだIPへのSYNは応答もRSTも返らず、接続確立だけでリクエスト全体の15秒を食い潰す。
+// 接続8秒/応答15秒に分離することで、死んだホストの占有コストを抑えつつ、
+// 応答の遅い生存ホストへの猶予は維持する。
+// 自宅回線のパケットロスによるSYN再送(1s/3s/7s)をもう1段待てるように8秒とした。
+// 死んだIPへの占有コストは8秒に増えるが、サーキットが抑制するため許容範囲。
+const CONNECT_TIMEOUT = 8000;
+
+function setupConnectTimeout(socket: stream.Duplex): void {
+	const timer = setTimeout(() => {
+		socket.destroy(new Error('connect/lookup timeout after 8s'));
+	}, CONNECT_TIMEOUT);
+	timer.unref();
+
+	const clear = () => clearTimeout(timer);
+	// TLSSocketは'connect'を発火しないため'secureConnect'が必須。
+	// これを欠くとkeepalive中の健全なソケットを8秒で破壊する。
+	socket.once('connect', clear); // http (net.Socket)
+	socket.once('secureConnect', clear); // https (TLSSocket)
+	socket.once('close', clear);
+}
+
 class HttpRequestServiceAgent extends http.Agent {
 	constructor(
 		private config: Config,
@@ -37,11 +90,22 @@ class HttpRequestServiceAgent extends http.Agent {
 
 	@bindThis
 	public createConnection(options: http.ClientRequestArgs, callback?: (err: Error | null, stream: stream.Duplex) => void): stream.Duplex {
+		socketStats.newConnections++;
 		const socket = super.createConnection(options, callback);
 
 		if (socket == null) {
 			throw new Error('Failed to create socket');
 		}
+
+		// ソケットがプールに戻るたびに利用時刻を記録(reuseSocketで遊休時間を計算するため)
+		if (socket instanceof net.Socket) {
+			socket.on('free', () => {
+				(socket as unknown as Record<string, unknown>).__lastUsedAt = Date.now();
+			});
+		}
+
+		// TCP接続確立に独立した5秒タイムアウトを設定
+		setupConnectTimeout(socket);
 
 		socket.on('connect', () => {
 			if (socket instanceof net.Socket && process.env.NODE_ENV === 'production') {
@@ -69,6 +133,24 @@ class HttpRequestServiceAgent extends http.Agent {
 		}
 
 		return parsedIp.range() !== 'unicast';
+	}
+
+	public reuseSocket(socket: net.Socket, req: http.ClientRequest): void {
+		socketStats.reusedConnections++;
+		const lastUsed = (socket as unknown as Record<string, unknown>).__lastUsedAt as number | undefined;
+		if (lastUsed != null) {
+			classifyIdleTime(Date.now() - lastUsed, socketStats.idleBuckets);
+		}
+		const host = req.getHeader('host') as string | undefined;
+		if (host != null) {
+			socketStats.recentReuseHosts.add(host);
+			// 直近セットは100件で刈り取り
+			if (socketStats.recentReuseHosts.size > 100) {
+				const first = socketStats.recentReuseHosts.values().next().value;
+				if (first != null) socketStats.recentReuseHosts.delete(first);
+			}
+		}
+		super.reuseSocket(socket, req);
 	}
 }
 
@@ -82,11 +164,21 @@ class HttpsRequestServiceAgent extends https.Agent {
 
 	@bindThis
 	public createConnection(options: http.ClientRequestArgs, callback?: (err: Error | null, stream: stream.Duplex) => void): stream.Duplex {
+		socketStats.newConnections++;
 		const socket = super.createConnection(options, callback);
 
 		if (socket == null) {
 			throw new Error('Failed to create socket');
 		}
+
+		if (socket instanceof net.Socket) {
+			socket.on('free', () => {
+				(socket as unknown as Record<string, unknown>).__lastUsedAt = Date.now();
+			});
+		}
+
+		// TCP接続確立に独立した5秒タイムアウトを設定
+		setupConnectTimeout(socket);
 
 		socket.on('connect', () => {
 			if (socket instanceof net.Socket && process.env.NODE_ENV === 'production') {
@@ -114,6 +206,23 @@ class HttpsRequestServiceAgent extends https.Agent {
 		}
 
 		return parsedIp.range() !== 'unicast';
+	}
+
+	public reuseSocket(socket: net.Socket, req: http.ClientRequest): void {
+		socketStats.reusedConnections++;
+		const lastUsed = (socket as unknown as Record<string, unknown>).__lastUsedAt as number | undefined;
+		if (lastUsed != null) {
+			classifyIdleTime(Date.now() - lastUsed, socketStats.idleBuckets);
+		}
+		const host = req.getHeader('host') as string | undefined;
+		if (host != null) {
+			socketStats.recentReuseHosts.add(host);
+			if (socketStats.recentReuseHosts.size > 100) {
+				const first = socketStats.recentReuseHosts.values().next().value;
+				if (first != null) socketStats.recentReuseHosts.delete(first);
+			}
+		}
+		super.reuseSocket(socket, req);
 	}
 }
 
@@ -152,15 +261,43 @@ export class HttpRequestService {
 	constructor(
 		@Inject(DI.config)
 		private config: Config,
+
+		@Inject(DI.redis)
+		private redisClient: Redis.Redis,
 	) {
+		// リゾルバ構築:
+		// ResolverWithStale でラップし、staleキャッシュ(6時間)とDNSキープウォームを共通で提供する。
+		// UDPリゾルバ → stale → ETIMEOUT
+		// 注意: この設定は外向きHTTP(このサービス経由)にのみ影響する。
+		// DBやRedisなどコンテナ名の解決は別経路(dns.lookup)のため影響しない。
+
+		// UDPリゾルバ
+		// DNS問い合わせの待ち時間に上限を設ける(最悪でも約4秒でDNSを諦め、
+		// リクエスト全体のタイムアウト予算を食い潰さないようにする)。
+		// c-aresはリトライごとにタイムアウトを倍増させるため、tries:1で
+		// 最悪 timeout(2s) + 倍増リトライ(4s) ≒ 約4秒に収まる。
+		const udpResolver = new dns.promises.Resolver({ timeout: 2000, tries: 1 });
+		if (config.outgoingDnsServers != null && config.outgoingDnsServers.length > 0) {
+			udpResolver.setServers(config.outgoingDnsServers);
+		}
+
+		// ResolverWithStale: staleキャッシュを全構成共通で提供
+		// dns.promises.Resolver を継承しているため型キャスト不要。
+		// 以前の as unknown as キャストは型検査を無効化し、
+		// cacheable-lookupのinstanceof分岐バグの検出を妨げていた。
+		const resolver = new ResolverWithStale(udpResolver, this.redisClient);
+
 		const cache = new CacheableLookup({
 			maxTtl: 3600,	// 1hours
 			errorTtl: 30,	// 30secs
+			resolver,
 			lookup: false,	// nativeのdns.lookupにfallbackしない
 		});
 
+		const keepAlive = config.outgoingHttpKeepAlive;
+
 		const agentOption = {
-			keepAlive: true,
+			keepAlive,
 			keepAliveMsecs: 30 * 1000,
 			lookup: cache.lookup as unknown as net.LookupFunction,
 			localAddress: config.outgoingAddress,
@@ -199,6 +336,22 @@ export class HttpRequestService {
 				localAddress: config.outgoingAddress,
 			})
 			: this.https;
+
+		// 60秒ごとにソケット統計をログ出力
+		setInterval(() => {
+			const s = socketStats;
+			const total = s.newConnections + s.reusedConnections;
+			if (total === 0) return;
+			console.log(
+				`[HttpRequestService] socket stats (last 60s): new=${s.newConnections} reused=${s.reusedConnections}`
+				+ ` idle(<30s=${s.idleBuckets.under30s} 30-90s=${s.idleBuckets['30to90s']}`
+				+ ` 90-300s=${s.idleBuckets['90to300s']} 300s+=${s.idleBuckets.over300s})`,
+			);
+			s.newConnections = 0;
+			s.reusedConnections = 0;
+			s.idleBuckets = { under30s: 0, '30to90s': 0, '90to300s': 0, over300s: 0 };
+			s.recentReuseHosts.clear();
+		}, 60_000).unref();
 	}
 
 	/**

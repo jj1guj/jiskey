@@ -17,6 +17,7 @@ services:
       - ./.config/docker.env
     environment:
       - NODE_ENV=production
+      - MISSKEY_FAST_DELIVERY_RETRY=1
     volumes:
       - type: bind
         source: ../../../built
