@@ -57,6 +57,35 @@ function httpRelatedBackoff(attemptsMade: number) {
 	return backoff;
 }
 
+// federation testはミリ秒〜秒単位で配送到達を検証するため、
+// テスト環境(MISSKEY_FAST_DELIVERY_RETRY=1)では時定数を大幅に短縮する。
+const FAST_RETRY = process.env.MISSKEY_FAST_DELIVERY_RETRY === '1';
+
+// deliver専用バックオフ生成。
+// 劣化モード中は高速リトライを使わず従来のはしごに切り替える。
+function createDeliverBackoff(deliverProcessor: DeliverProcessorService) {
+	return function deliverBackoff(attemptsMade: number, _type?: string, err?: Error, _job?: unknown) {
+		// 劣化モード中は高速リトライを抑制し、従来の指数バックオフのみ使用
+		if (!deliverProcessor.isDegraded()) {
+			const isTransient = err != null && /ETIMEOUT|EAI_AGAIN|ECONNRESET|aborted/i.test(err.message);
+
+			if (isTransient && attemptsMade <= 3) {
+				if (FAST_RETRY) {
+					const delays = [100, 200, 400];
+					return delays[Math.min(attemptsMade - 1, delays.length - 1)];
+				}
+				const delays = [15_000, 45_000, 120_000]; // 15s, 45s, 2min
+				const base = delays[Math.min(attemptsMade - 1, delays.length - 1)];
+				return base + Math.round(base * Math.random() * 0.2);
+			}
+		}
+
+		// 従来の指数バックオフに合流(テスト時は上限1秒)
+		if (FAST_RETRY) return Math.min(httpRelatedBackoff(attemptsMade), 1000);
+		return httpRelatedBackoff(attemptsMade);
+	};
+}
+
 function getJobInfo(job: Bull.Job | undefined, increment = false): string {
 	if (job == null) return '-';
 
@@ -129,6 +158,7 @@ export class QueueProcessorService implements OnApplicationShutdown {
 		private cleanRemoteNotesProcessorService: CleanRemoteNotesProcessorService,
 	) {
 		this.logger = this.queueLoggerService.logger;
+		this.logger.info(`deliverBackoff profile: ${FAST_RETRY ? 'fast (MISSKEY_FAST_DELIVERY_RETRY)' : 'production'} transient=[${FAST_RETRY ? '100,200,400' : '15000,45000,120000'}]ms fallbackCap=${FAST_RETRY ? '1000' : 'none'}ms`);
 
 		function renderError(e?: Error) {
 			// 何故かeがundefinedで来ることがある
@@ -269,24 +299,37 @@ export class QueueProcessorService implements OnApplicationShutdown {
 
 		//#region deliver
 		{
-			this.deliverQueueWorker = new Bull.Worker(QUEUE.DELIVER, (job) => {
+			const normalConcurrency = this.config.deliverJobConcurrency ?? 128;
+			const degradedConcurrency = 8;
+
+			this.deliverQueueWorker = new Bull.Worker(QUEUE.DELIVER, (job, token) => {
 				if (Sentry != null) {
-					return Sentry.startSpan({ name: 'Queue: Deliver' }, () => this.deliverProcessorService.process(job));
+					return Sentry.startSpan({ name: 'Queue: Deliver' }, () => this.deliverProcessorService.process(job, token));
 				} else {
-					return this.deliverProcessorService.process(job);
+					return this.deliverProcessorService.process(job, token);
 				}
 			}, {
 				...baseWorkerOptions(this.config, QUEUE.DELIVER),
 				autorun: false,
-				concurrency: this.config.deliverJobConcurrency ?? 128,
+				concurrency: normalConcurrency,
 				limiter: {
 					max: this.config.deliverJobPerSec ?? 128,
 					duration: 1000,
 				},
 				settings: {
-					backoffStrategy: httpRelatedBackoff,
+					backoffStrategy: createDeliverBackoff(this.deliverProcessorService),
 				},
 			});
+
+			// 劣化モードの監視: 5秒間隔でconcurrencyを制御する
+			setInterval(() => {
+				const target = this.deliverProcessorService.isDegraded()
+					? degradedConcurrency
+					: normalConcurrency;
+				if (this.deliverQueueWorker.concurrency !== target) {
+					this.deliverQueueWorker.concurrency = target;
+				}
+			}, 5000).unref();
 
 			const logger = this.logger.createSubLogger('deliver');
 
