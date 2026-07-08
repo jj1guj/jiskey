@@ -152,7 +152,7 @@ describe('FileServerService', () => {
 			detectSensitiveMany: async (sources: Buffer[]) => sources.map(() => null),
 		} as unknown as AiService;
 		const fileInfoService = new FileInfoService(aiService, loggerService);
-		const httpRequestService = new HttpRequestService(config);
+		const httpRequestService = new HttpRequestService(config, null as any);
 		const downloadService = new DownloadService(config, httpRequestService, loggerService);
 		const imageProcessingService = new ImageProcessingService();
 		const videoProcessingService = new VideoProcessingService(config, imageProcessingService);
