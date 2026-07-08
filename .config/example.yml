@@ -353,6 +353,16 @@ id: 'aidx'
 # IP address family used for outgoing request (ipv4, ipv6 or dual)
 #outgoingAddressFamily: ipv4
 
+# DNS servers used for outgoing requests (e.g. ActivityPub delivery).
+# If not set, the OS-configured resolver is used.
+# Specifying public resolvers can help when the default resolver
+# (e.g. Docker's embedded DNS) gets congested under delivery bursts.
+#outgoingDnsServers: ['1.1.1.1', '1.0.0.1']
+
+# Disable HTTP keep-alive for outgoing requests (diagnostic).
+# Try this if deliveries intermittently stall until timeout behind CGN/NAT.
+#outgoingHttpKeepAlive: false
+
 # Proxy for HTTP/HTTPS
 #proxy: http://127.0.0.1:3128
 

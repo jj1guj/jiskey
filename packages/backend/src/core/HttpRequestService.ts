@@ -13,10 +13,12 @@ import CacheableLookup from 'cacheable-lookup';
 import fetch from 'node-fetch';
 import { HttpProxyAgent, HttpsProxyAgent } from 'hpagent';
 import { Inject, Injectable } from '@nestjs/common';
+import * as Redis from 'ioredis';
 import { DI } from '@/di-symbols.js';
 import type { Config } from '@/config.js';
 import { StatusError } from '@/misc/status-error.js';
 import { bindThis } from '@/decorators.js';
+import { ResolverWithStale } from '@/core/ResolverWithStale.js';
 import { validateContentTypeSetAsActivityPub } from '@/core/activitypub/misc/validator.js';
 import { assertActivityMatchesUrl, FetchAllowSoftFailMask } from '@/core/activitypub/misc/check-against-url.js';
 import type { IObject } from '@/core/activitypub/type.js';
@@ -259,15 +261,43 @@ export class HttpRequestService {
 	constructor(
 		@Inject(DI.config)
 		private config: Config,
+
+		@Inject(DI.redis)
+		private redisClient: Redis.Redis,
 	) {
+		// リゾルバ構築:
+		// ResolverWithStale でラップし、staleキャッシュ(6時間)とDNSキープウォームを共通で提供する。
+		// UDPリゾルバ → stale → ETIMEOUT
+		// 注意: この設定は外向きHTTP(このサービス経由)にのみ影響する。
+		// DBやRedisなどコンテナ名の解決は別経路(dns.lookup)のため影響しない。
+
+		// UDPリゾルバ
+		// DNS問い合わせの待ち時間に上限を設ける(最悪でも約4秒でDNSを諦め、
+		// リクエスト全体のタイムアウト予算を食い潰さないようにする)。
+		// c-aresはリトライごとにタイムアウトを倍増させるため、tries:1で
+		// 最悪 timeout(2s) + 倍増リトライ(4s) ≒ 約4秒に収まる。
+		const udpResolver = new dns.promises.Resolver({ timeout: 2000, tries: 1 });
+		if (config.outgoingDnsServers != null && config.outgoingDnsServers.length > 0) {
+			udpResolver.setServers(config.outgoingDnsServers);
+		}
+
+		// ResolverWithStale: staleキャッシュを全構成共通で提供
+		// dns.promises.Resolver を継承しているため型キャスト不要。
+		// 以前の as unknown as キャストは型検査を無効化し、
+		// cacheable-lookupのinstanceof分岐バグの検出を妨げていた。
+		const resolver = new ResolverWithStale(udpResolver, this.redisClient);
+
 		const cache = new CacheableLookup({
 			maxTtl: 3600,	// 1hours
 			errorTtl: 30,	// 30secs
+			resolver,
 			lookup: false,	// nativeのdns.lookupにfallbackしない
 		});
 
+		const keepAlive = config.outgoingHttpKeepAlive;
+
 		const agentOption = {
-			keepAlive: true,
+			keepAlive,
 			keepAliveMsecs: 30 * 1000,
 			lookup: cache.lookup as unknown as net.LookupFunction,
 			localAddress: config.outgoingAddress,
