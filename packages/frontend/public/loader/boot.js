@@ -12,6 +12,18 @@
 		renderError('SOMETHING_HAPPENED', e);
 	};
 	window.onunhandledrejection = (e) => {
+		const reason = e.reason;
+		const message = reason?.toString?.() ?? '';
+		if (message.includes('Load failed') || message.includes('module script failed')) {
+			// ネットワーク一時断によるモジュール読み込み失敗の場合、自動リトライ
+			const retryCount = parseInt(sessionStorage.getItem('bootRetryCount') || '0', 10);
+			if (retryCount < 3) {
+				sessionStorage.setItem('bootRetryCount', String(retryCount + 1));
+				setTimeout(() => location.reload(), 1000);
+				return;
+			}
+			sessionStorage.removeItem('bootRetryCount');
+		}
 		console.error(e);
 		renderError('SOMETHING_HAPPENED_IN_PROMISE', e.reason || e);
 	};
@@ -48,11 +60,23 @@
 
 	//#region Script
 	async function importAppScript() {
-		await import(CLIENT_ENTRY ? `/vite/${CLIENT_ENTRY.replace('scripts', lang)}` : '/vite/src/_boot_.ts')
-			.catch(async e => {
-				console.error(e);
-				renderError('APP_IMPORT', e);
-			});
+		const maxRetries = 3;
+		for (let attempt = 0; attempt <= maxRetries; attempt++) {
+			try {
+				await import(CLIENT_ENTRY ? `/vite/${CLIENT_ENTRY.replace('scripts', lang)}` : '/vite/src/_boot_.ts');
+				return;
+			} catch (e) {
+				if (attempt < maxRetries) {
+					// ネットワーク復帰待ちのため指数バックオフでリトライ
+					const delay = 1000 * Math.pow(2, attempt); // 1s, 2s, 4s
+					console.warn(`APP_IMPORT attempt ${attempt + 1} failed, retrying in ${delay}ms...`, e);
+					await new Promise(resolve => setTimeout(resolve, delay));
+				} else {
+					console.error(e);
+					renderError('APP_IMPORT', e);
+				}
+			}
+		}
 	}
 
 	// タイミングによっては、この時点でDOMの構築が済んでいる場合とそうでない場合とがある
