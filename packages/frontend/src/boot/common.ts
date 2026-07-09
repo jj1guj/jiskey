@@ -117,7 +117,9 @@ export async function common(createVue: () => Promise<App<Element>>) {
 	await store.ready;
 	await deckStore.ready;
 
-	const fetchInstanceMetaPromise = fetchInstance();
+	const fetchInstanceMetaPromise = fetchInstance().catch(e => {
+		console.warn('Failed to fetch instance meta:', e);
+	});
 
 	fetchInstanceMetaPromise.then(() => {
 		miLocalStorage.setItem('v', instance.version);
@@ -256,6 +258,8 @@ export async function common(createVue: () => Promise<App<Element>>) {
 		analytics.page({
 			path: window.location.pathname,
 		});
+	}).catch(e => {
+		console.warn('Failed to initialize analytics:', e);
 	});
 
 	const app = await createVue();
@@ -331,7 +335,75 @@ export async function common(createVue: () => Promise<App<Element>>) {
 
 	// boot.jsのやつを解除
 	window.onerror = null;
-	window.onunhandledrejection = null;
+	window.onunhandledrejection = (ev) => {
+		// マウント後もチャンク読み込み失敗(iOS PWA復帰時等)を検知してリロード
+		const message = ev.reason?.toString?.() ?? '';
+		if (message.includes('Load failed') || message.includes('module script failed') || message.includes('Failed to fetch dynamically imported module')) {
+			const retryCount = parseInt(sessionStorage.getItem('bootRetryCount') ?? '0', 10);
+			if (retryCount < 3) {
+				sessionStorage.setItem('bootRetryCount', String(retryCount + 1));
+				window.setTimeout(() => window.location.reload(), 1000);
+				return;
+			}
+		}
+	};
+	sessionStorage.removeItem('bootRetryCount');
+
+	// iOS PWA: バックグラウンドから復帰した際にページの状態が壊れている場合リロード
+	function checkCssHealth(): boolean {
+		try {
+			let totalRules = 0;
+			let checkedSheets = 0;
+			for (const sheet of window.document.styleSheets) {
+				// cross-origin のスタイルシートは cssRules にアクセスできないのでスキップ
+				try {
+					totalRules += sheet.cssRules.length;
+					checkedSheets++;
+				} catch {
+					// SecurityError (cross-origin) は無視
+				}
+			}
+			// same-origin のスタイルシートが存在し、かつルール数が0ならCSS実体が破棄されている
+			if (checkedSheets > 0 && totalRules === 0) return false;
+			// スタイルシート自体が全くない場合も異常
+			if (window.document.styleSheets.length === 0) return false;
+		} catch {
+			// styleSheets アクセス自体の例外は異常とみなす
+			return false;
+		}
+		return true;
+	}
+
+	function handleRecoveryCheck() {
+		if (!checkCssHealth()) {
+			const count = parseInt(sessionStorage.getItem('cssHealthReloadCount') ?? '0', 10);
+			if (count < 3) {
+				sessionStorage.setItem('cssHealthReloadCount', String(count + 1));
+				window.location.reload();
+			}
+		}
+	}
+
+	let lastHiddenAt = 0;
+	window.document.addEventListener('visibilitychange', () => {
+		if (window.document.visibilityState === 'hidden') {
+			lastHiddenAt = Date.now();
+		} else {
+			// 30秒以上バックグラウンドにいた場合、CSSの健全性をチェック
+			if (lastHiddenAt > 0 && (Date.now() - lastHiddenAt) > 30000) {
+				handleRecoveryCheck();
+			}
+		}
+	}, { passive: true });
+
+	// bfcache/スナップショット復元時のフェイルセーフ
+	window.addEventListener('pageshow', (ev) => {
+		if (ev.persisted) {
+			handleRecoveryCheck();
+		}
+	}, { passive: true });
+
+	sessionStorage.removeItem('cssHealthReloadCount');
 
 	removeSplash();
 
