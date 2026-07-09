@@ -18,25 +18,61 @@ const HTML_CACHE_NAME = `html-v${_VERSION_}`;
 const HTML_CACHE_MAX_ENTRIES = 20;
 
 async function respondToNavigation(request: Request): Promise<Response> {
+	const url = new URL(request.url);
+	const isEmbedPage = url.pathname.startsWith('/embed/');
+
 	const controller = new AbortController();
 	const timeout = globalThis.setTimeout(() => {
 		controller.abort('navigation-timeout');
 	}, FETCH_TIMEOUT_MS);
 
 	try {
-		const response = await fetch(request, { signal: controller.signal });
+		const response = await fetch(request, { signal: controller.signal, cache: 'no-store' });
 
-		if (response?.status && response.status < 500) return response;
-		if (response?.type === 'opaqueredirect') return response;
+		if (response.type === 'opaqueredirect') return response;
+
+		if (response.status >= 500) {
+			// 500番台はキャッシュフォールバックへ
+			throw new Error(`Server error: ${response.status}`);
+		}
+
+		if (response.ok && response.status === 200 && !isEmbedPage) {
+			// 正常なHTML応答をキャッシュに保存
+			try {
+				const cache = await caches.open(HTML_CACHE_NAME);
+				await cache.put(request, response.clone());
+				// エントリ数制限
+				const keys = await cache.keys();
+				if (keys.length > HTML_CACHE_MAX_ENTRIES) {
+					for (let i = 0; i < keys.length - HTML_CACHE_MAX_ENTRIES; i++) {
+						await cache.delete(keys[i]);
+					}
+				}
+			} catch {
+				// キャッシュ保存失敗は無視
+			}
+		}
+
+		if (response.status < 500) return response;
 	} catch (error) {
 		if (_DEV_) {
-			console.warn('navigation fetch failed; showing offline page', error);
+			console.warn('navigation fetch failed; trying cache fallback', error);
 		}
 	} finally {
 		globalThis.clearTimeout(timeout);
 	}
 
-	// Only show offline page when network request actually fails
+	// キャッシュフォールバック(embed以外)
+	if (!isEmbedPage) {
+		try {
+			const cached = await caches.match(request);
+			if (cached) return cached;
+		} catch {
+			// Cache Storage アクセス失敗は無視
+		}
+	}
+
+	// キャッシュもない場合はofflineページ
 	const html = await offlineContentHTML();
 	return new Response(html, {
 		status: 200,
