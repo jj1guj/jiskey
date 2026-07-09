@@ -436,7 +436,7 @@ export class ClientServerService {
 		//#endregion
 
 		const renderBase = async (reply: FastifyReply, data: Partial<Parameters<typeof BasePage>[0]> = {}) => {
-			reply.header('Cache-Control', 'public, max-age=30');
+			reply.header('Cache-Control', 'no-cache');
 			return await HtmlTemplateService.replyHtml(reply, BasePage({
 				img: this.meta.bannerUrl ?? undefined,
 				title: this.meta.name ?? 'Misskey',
@@ -526,7 +526,7 @@ export class ClientServerService {
 			) {
 				const profile = await this.userProfilesRepository.findOneByOrFail({ userId: user.id });
 
-				reply.header('Cache-Control', 'public, max-age=15');
+				reply.header('Cache-Control', 'no-cache');
 				if (profile.preventAiLearning) {
 					reply.header('X-Robots-Tag', 'noimageai');
 					reply.header('X-Robots-Tag', 'noai');
@@ -595,7 +595,7 @@ export class ClientServerService {
 			) {
 				const _note = await this.noteEntityService.pack(note);
 				const profile = await this.userProfilesRepository.findOneByOrFail({ userId: note.userId });
-				reply.header('Cache-Control', 'public, max-age=15');
+				reply.header('Cache-Control', 'no-cache');
 				if (profile.preventAiLearning) {
 					reply.header('X-Robots-Tag', 'noimageai');
 					reply.header('X-Robots-Tag', 'noai');
@@ -632,7 +632,7 @@ export class ClientServerService {
 				const _page = await this.pageEntityService.pack(page);
 				const profile = await this.userProfilesRepository.findOneByOrFail({ userId: page.userId });
 				if (['public'].includes(page.visibility)) {
-					reply.header('Cache-Control', 'public, max-age=15');
+					reply.header('Cache-Control', 'no-cache');
 				} else {
 					reply.header('Cache-Control', 'private, max-age=0, must-revalidate');
 				}
@@ -659,7 +659,7 @@ export class ClientServerService {
 			if (flash) {
 				const _flash = await this.flashEntityService.pack(flash);
 				const profile = await this.userProfilesRepository.findOneByOrFail({ userId: flash.userId });
-				reply.header('Cache-Control', 'public, max-age=15');
+				reply.header('Cache-Control', 'no-cache');
 				if (profile.preventAiLearning) {
 					reply.header('X-Robots-Tag', 'noimageai');
 					reply.header('X-Robots-Tag', 'noai');
@@ -683,7 +683,7 @@ export class ClientServerService {
 			if (clip && clip.isPublic) {
 				const _clip = await this.clipEntityService.pack(clip);
 				const profile = await this.userProfilesRepository.findOneByOrFail({ userId: clip.userId });
-				reply.header('Cache-Control', 'public, max-age=15');
+				reply.header('Cache-Control', 'no-cache');
 				if (profile.preventAiLearning) {
 					reply.header('X-Robots-Tag', 'noimageai');
 					reply.header('X-Robots-Tag', 'noai');
@@ -708,7 +708,7 @@ export class ClientServerService {
 			if (post) {
 				const _post = await this.galleryPostEntityService.pack(post);
 				const profile = await this.userProfilesRepository.findOneByOrFail({ userId: post.userId });
-				reply.header('Cache-Control', 'public, max-age=15');
+				reply.header('Cache-Control', 'no-cache');
 				if (profile.preventAiLearning) {
 					reply.header('X-Robots-Tag', 'noimageai');
 					reply.header('X-Robots-Tag', 'noai');
@@ -731,7 +731,7 @@ export class ClientServerService {
 
 			if (channel) {
 				const _channel = await this.channelEntityService.pack(channel);
-				reply.header('Cache-Control', 'public, max-age=15');
+				reply.header('Cache-Control', 'no-cache');
 				return await HtmlTemplateService.replyHtml(reply, ChannelPage({
 					channel: _channel,
 					...(await this.htmlTemplateService.getCommonData()),
