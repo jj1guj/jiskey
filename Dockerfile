@@ -33,7 +33,7 @@ COPY --link ["packages/misskey-bubble-game/package.json", "./packages/misskey-bu
 
 ARG NODE_ENV=production
 
-RUN corepack enable && corepack prepare --activate
+RUN npm install -g corepack && corepack enable && corepack prepare --activate
 
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store,sharing=locked \
 	pnpm i --frozen-lockfile --aggregate-output
@@ -66,7 +66,7 @@ COPY --link ["packages/misskey-bubble-game/package.json", "./packages/misskey-bu
 
 ARG NODE_ENV=production
 
-RUN corepack enable && corepack prepare --activate
+RUN npm install -g corepack && corepack enable && corepack prepare --activate
 
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store,sharing=locked \
     pnpm i --frozen-lockfile --prod --aggregate-output \
@@ -98,7 +98,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 
 # add package.json to add pnpm
 COPY ./package.json ./package.json
-RUN corepack enable && corepack prepare --activate
+RUN npm install -g corepack && corepack enable && corepack prepare --activate
 
 USER misskey
 WORKDIR /misskey
