@@ -100,6 +100,8 @@ async function offlineContentHTML() {
 }
 
 globalThis.addEventListener('install', (ev) => {
+	ev.waitUntil(globalThis.skipWaiting());
+
 	// 次の問題が発生するため、ServiceWorkerAutoPreload をオプトアウトする必要がある
 	// https://issues.chromium.org/issues/466790291
 	if ('addRoutes' in ev) {
