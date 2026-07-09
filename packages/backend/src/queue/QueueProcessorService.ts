@@ -286,11 +286,7 @@ export class QueueProcessorService implements OnApplicationShutdown {
 			const degradedConcurrency = 8;
 
 			this.deliverQueueWorker = new Bull.Worker(QUEUE.DELIVER, (job, token) => {
-				if (Sentry != null) {
-					return this.telemetryService.startSpan({ name: 'Queue: Deliver' }, () => this.deliverProcessorService.process(job, token));
-				} else {
-					return this.deliverProcessorService.process(job, token);
-				}
+				return this.telemetryService.startSpan('Queue: Deliver', () => this.deliverProcessorService.process(job, token));
 			}, {
 				...baseWorkerOptions(this.config, QUEUE.DELIVER),
 				autorun: false,
