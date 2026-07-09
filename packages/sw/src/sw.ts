@@ -13,6 +13,10 @@ import { createEmptyNotification, createNotification } from '@/scripts/create-no
 import { swLang } from '@/scripts/lang.js';
 import * as swos from '@/scripts/operations.js';
 
+const ASSETS_CACHE_NAME = `assets-v${_VERSION_}`;
+const HTML_CACHE_NAME = `html-v${_VERSION_}`;
+const HTML_CACHE_MAX_ENTRIES = 20;
+
 async function respondToNavigation(request: Request): Promise<Response> {
 	const controller = new AbortController();
 	const timeout = globalThis.setTimeout(() => {
@@ -77,18 +81,52 @@ globalThis.addEventListener('install', (ev) => {
 });
 
 globalThis.addEventListener('activate', ev => {
+	const preserveCaches = new Set([swLang.cacheName, ASSETS_CACHE_NAME, HTML_CACHE_NAME]);
 	ev.waitUntil(
 		caches.keys()
 			.then(cacheNames => Promise.all(
 				cacheNames
-					.filter((v) => v !== swLang.cacheName)
+					.filter((v) => !preserveCaches.has(v))
 					.map(name => caches.delete(name)),
 			))
 			.then(() => globalThis.clients.claim()),
 	);
 });
 
+async function respondToAsset(request: Request): Promise<Response> {
+	try {
+		const cached = await caches.match(request);
+		if (cached) return cached;
+	} catch {
+		// Cache Storage にアクセスできない場合はネットワークにフォールバック
+	}
+
+	const response = await fetch(request);
+
+	if (response.ok && response.type !== 'opaque' && response.status !== 206) {
+		try {
+			const cache = await caches.open(ASSETS_CACHE_NAME);
+			await cache.put(request, response.clone());
+		} catch {
+			// キャッシュ保存失敗は無視(ストレージ圧迫時等)
+		}
+	}
+
+	return response;
+}
+
 globalThis.addEventListener('fetch', ev => {
+	const url = new URL(ev.request.url);
+
+	// same-origin かつ GET の静的アセット (content-hash付き) → CacheFirst
+	if (ev.request.method === 'GET' && url.origin === globalThis.location.origin) {
+		if (url.pathname.startsWith('/vite/') || url.pathname.startsWith('/embed_vite/')) {
+			ev.respondWith(respondToAsset(ev.request));
+			return;
+		}
+	}
+
+	// HTML navigation → NetworkFirst
 	let isHTMLRequest = false;
 	if (ev.request.headers.get('sec-fetch-dest') === 'document') {
 		isHTMLRequest = true;
