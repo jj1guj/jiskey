@@ -78,10 +78,16 @@ test('omits a paired-looking PSS delta that is not significant for independent s
 		baseHeapSnapshotUrl: 'https://example.invalid/base',
 		headHeapSnapshotUrl: 'https://example.invalid/head',
 	});
+	const row = findMetricRow(markdown, 'PSS');
 
-	expect(markdown).not.toContain('| **PSS**');
-	expect(markdown).not.toContain('| **USS**');
-	expect(markdown).toContain('Only metrics showing significant changes are displayed.');
+	expect(row).toContain('295.8 MB <br> ± 2.9 MB');
+	expect(row).toContain('296.3 MB <br> ± 3.4 MB');
+	expect(row).toContain('$\\text{+0.5 MB}$');
+	expect(row).toContain('4.5 MB');
+	expect(row.split('|')).toHaveLength(7);
+	expect(row).not.toMatch(/within noise|increase|decrease|inconclusive/);
+	expect(row).not.toContain('\\color{orange}');
+	expect(findMetricRow(markdown, 'USS')).not.toContain('\\color{orange}');
 });
 
 test('keeps the convergence warning without suppressing table colour or the PSS warning', async () => {
@@ -125,6 +131,6 @@ test('renders an unavailable percentage when the base median is zero', async () 
 	});
 
 	expect(findMetricRow(markdown, 'External')).toContain('<br>-');
-	expect(markdown).toContain('| Metric | @ Base | @ Head | Δ | MAD |');
-	expect(markdown).not.toContain('| Metric | @ Base | @ Head | Δ | MAD | Result |');
+	expect(markdown).toContain('| Metric | @&nbsp;Base | @&nbsp;Head | Δ | MAD |');
+	expect(markdown).not.toContain('| Metric | @&nbsp;Base | @&nbsp;Head | Δ | MAD | Result |');
 });
