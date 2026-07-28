@@ -3,6 +3,22 @@ import assert, { rejects, strictEqual } from 'node:assert';
 import * as Misskey from 'misskey-js';
 import { createAccount, deepStrictEqualWithExcludedFields, fetchAdmin, type LoginUser, resolveRemoteNote, resolveRemoteUser, sleep } from './utils.js';
 
+async function waitFor<T>(
+	fetchValue: () => Promise<T>,
+	predicate: (value: T) => boolean,
+	timeout = 5000,
+): Promise<T> {
+	const deadline = Date.now() + timeout;
+	let value = await fetchValue();
+
+	while (!predicate(value) && Date.now() < deadline) {
+		await sleep(100);
+		value = await fetchValue();
+	}
+
+	return value;
+}
+
 const [aAdmin, bAdmin] = await Promise.all([
 	fetchAdmin('a.test'),
 	fetchAdmin('b.test'),
@@ -139,28 +155,50 @@ describe('User', () => {
 
 			test('Becoming a cat is sent to their followers', async () => {
 				await bob.client.request('following/create', { userId: aliceInB.id });
-				await sleep();
+
+				const followers = await waitFor(
+					() => alice.client.request('users/followers', { userId: alice.id }),
+					value => value.some(follower => follower.followerId === bobInA.id),
+				);
+				strictEqual(
+					followers.some(follower => follower.followerId === bobInA.id),
+					true,
+				);
 
 				await alice.client.request('i/update', { isCat: true });
-				await sleep();
 
-				const res = await bob.client.request('users/show', { userId: aliceInB.id });
+				const res = await waitFor(
+					() => bob.client.request('users/show', { userId: aliceInB.id }),
+					user => user.isCat === true,
+				);
 				strictEqual(res.isCat, true);
 			});
 		});
 
 		describe('Pinning Notes', () => {
 			let alice: LoginUser, bob: LoginUser;
-			let aliceInB: Misskey.entities.UserDetailedNotMe;
+			let bobInA: Misskey.entities.UserDetailedNotMe, aliceInB: Misskey.entities.UserDetailedNotMe;
 
 			beforeAll(async () => {
 				[alice, bob] = await Promise.all([
 					createAccount('a.test'),
 					createAccount('b.test'),
 				]);
-				aliceInB = await resolveRemoteUser('a.test', alice.id, bob);
+				[bobInA, aliceInB] = await Promise.all([
+					resolveRemoteUser('b.test', bob.id, alice),
+					resolveRemoteUser('a.test', alice.id, bob),
+				]);
 
 				await bob.client.request('following/create', { userId: aliceInB.id });
+
+				const followers = await waitFor(
+					() => alice.client.request('users/followers', { userId: alice.id }),
+					value => value.some(follower => follower.followerId === bobInA.id),
+				);
+				strictEqual(
+					followers.some(follower => follower.followerId === bobInA.id),
+					true,
+				);
 			});
 
 			test('Pinning localOnly Note is not delivered', async () => {
@@ -186,9 +224,11 @@ describe('User', () => {
 			test('Pinning normal Note is delivered', async () => {
 				pinnedNote = (await alice.client.request('notes/create', { text: 'a' })).createdNote;
 				await alice.client.request('i/pin', { noteId: pinnedNote.id });
-				await sleep();
 
-				const _aliceInB = await bob.client.request('users/show', { userId: aliceInB.id });
+				const _aliceInB = await waitFor(
+					() => bob.client.request('users/show', { userId: aliceInB.id }),
+					user => user.pinnedNoteIds.length === 1,
+				);
 				strictEqual(_aliceInB.pinnedNoteIds.length, 1);
 				const pinnedNoteInB = await resolveRemoteNote('a.test', pinnedNote.id, bob);
 				strictEqual(_aliceInB.pinnedNotes[0].id, pinnedNoteInB.id);
@@ -196,9 +236,11 @@ describe('User', () => {
 
 			test('Unpinning normal Note is delivered', async () => {
 				await alice.client.request('i/unpin', { noteId: pinnedNote.id });
-				await sleep();
 
-				const _aliceInB = await bob.client.request('users/show', { userId: aliceInB.id });
+				const _aliceInB = await waitFor(
+					() => bob.client.request('users/show', { userId: aliceInB.id }),
+					user => user.pinnedNoteIds.length === 0,
+				);
 				strictEqual(_aliceInB.pinnedNoteIds.length, 0);
 			});
 		});
