@@ -22,7 +22,7 @@ import { ResolverWithStale } from '@/core/ResolverWithStale.js';
 import { validateContentTypeSetAsActivityPub } from '@/core/activitypub/misc/validator.js';
 import { assertActivityMatchesUrl, FetchAllowSoftFailMask } from '@/core/activitypub/misc/check-against-url.js';
 import type { IObject } from '@/core/activitypub/type.js';
-import type { Response } from 'node-fetch';
+import type { BodyInit, Response } from 'node-fetch';
 import type { URL } from 'node:url';
 
 export type HttpRequestSendOptions = {
@@ -464,7 +464,7 @@ export class HttpRequestService {
 		url: string,
 		args: {
 			method?: string,
-			body?: string,
+			body?: BodyInit,
 			headers?: Record<string, string>,
 			timeout?: number,
 			size?: number,
