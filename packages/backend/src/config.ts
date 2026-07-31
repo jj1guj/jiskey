@@ -10,6 +10,7 @@ import { type FastifyServerOptions } from 'fastify';
 import type * as Sentry from '@sentry/node';
 import type * as SentryVue from '@sentry/vue';
 import type { RedisOptions } from 'ioredis';
+import type { AccessLogConfiguration, LogFormat, LogLevelSetting } from './logging/types.js';
 
 type RedisOptionsSource = Partial<RedisOptions> & {
 	host: string;
@@ -18,6 +19,12 @@ type RedisOptionsSource = Partial<RedisOptions> & {
 	pass: string;
 	db?: number;
 	prefix?: string;
+};
+
+type SentryBackendConfig = {
+	options: Partial<Sentry.NodeOptions>;
+	enableNodeProfiling: boolean;
+	disabledIntegrations?: string[];
 };
 
 /**
@@ -64,7 +71,7 @@ type Source = {
 		index: string;
 		scope?: 'local' | 'global' | string[];
 	};
-	sentryForBackend?: { options: Partial<Sentry.NodeOptions>; enableNodeProfiling: boolean; };
+	sentryForBackend?: SentryBackendConfig;
 	sentryForFrontend?: {
 		options: Partial<SentryVue.BrowserOptions> & { dsn: string };
 		vueIntegration?: SentryVue.VueIntegrationOptions | null;
@@ -91,6 +98,8 @@ type Source = {
 
 	outgoingAddress?: string;
 	outgoingAddressFamily?: 'ipv4' | 'ipv6' | 'dual';
+	outgoingDnsServers?: string[];
+	outgoingHttpKeepAlive?: boolean;
 
 	deliverJobConcurrency?: number;
 	inboxJobConcurrency?: number;
@@ -110,6 +119,10 @@ type Source = {
 	pidFile: string;
 
 	logging?: {
+		format?: LogFormat;
+		level?: LogLevelSetting;
+		domains?: Record<string, LogLevelSetting> | null;
+		access?: AccessLogConfiguration;
 		sql?: {
 			disableQueryTruncation?: boolean,
 			enableQueryParamLogging?: boolean,
@@ -163,6 +176,8 @@ export type Config = {
 	id: string;
 	outgoingAddress: string | undefined;
 	outgoingAddressFamily: 'ipv4' | 'ipv6' | 'dual' | undefined;
+	outgoingDnsServers: string[] | undefined;
+	outgoingHttpKeepAlive: boolean;
 	deliverJobConcurrency: number | undefined;
 	inboxJobConcurrency: number | undefined;
 	relationshipJobConcurrency: number | undefined;
@@ -172,6 +187,10 @@ export type Config = {
 	deliverJobMaxAttempts: number | undefined;
 	inboxJobMaxAttempts: number | undefined;
 	logging?: {
+		format?: LogFormat;
+		level?: LogLevelSetting;
+		domains?: Record<string, LogLevelSetting> | null;
+		access?: AccessLogConfiguration;
 		sql?: {
 			disableQueryTruncation?: boolean,
 			enableQueryParamLogging?: boolean,
@@ -201,7 +220,7 @@ export type Config = {
 	redisForJobQueue: RedisOptions & RedisOptionsSource;
 	redisForTimelines: RedisOptions & RedisOptionsSource;
 	redisForReactions: RedisOptions & RedisOptionsSource;
-	sentryForBackend: { options: Partial<Sentry.NodeOptions>; enableNodeProfiling: boolean; } | undefined;
+	sentryForBackend: SentryBackendConfig | undefined;
 	sentryForFrontend: {
 		options: Partial<SentryVue.BrowserOptions> & { dsn: string };
 		vueIntegration?: SentryVue.VueIntegrationOptions | null;
@@ -318,6 +337,8 @@ export function loadConfig(): Config {
 		threadPoolSize: config.threadPoolSize ?? 1,
 		outgoingAddress: config.outgoingAddress,
 		outgoingAddressFamily: config.outgoingAddressFamily,
+		outgoingDnsServers: config.outgoingDnsServers,
+		outgoingHttpKeepAlive: config.outgoingHttpKeepAlive ?? true,
 		deliverJobConcurrency: config.deliverJobConcurrency,
 		inboxJobConcurrency: config.inboxJobConcurrency,
 		relationshipJobConcurrency: config.relationshipJobConcurrency,

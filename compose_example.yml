@@ -96,3 +96,23 @@ networks:
   internal_network:
     internal: true
   external_network:
+    # Enable IPv6 for outgoing federation delivery.
+    # Some remote servers (especially home-hosted instances) have unstable
+    # IPv4 but healthy IPv6; enabling this lets deliveries succeed via IPv6
+    # when the destination's IPv4 is flapping.
+    #
+    # Prerequisites:
+    # - The host must have global IPv6 connectivity.
+    # - Docker Engine 27+ recommended. On older versions, add
+    #   { "ipv6": true, "fixed-cidr-v6": "fd00:cafe:0::/64", "ip6tables": true }
+    #   to /etc/docker/daemon.json and restart Docker.
+    #
+    # Note: with ip6tables enabled, published ports also bind on [::].
+    # If a reverse proxy or tunnel (e.g. cloudflared) points at
+    # "localhost:3000", change it to "127.0.0.1:3000" explicitly to avoid
+    # connecting to ::1 where the container may not be listening.
+    #
+    #enable_ipv6: true
+    #ipam:
+    #  config:
+    #    - subnet: fd00:cafe:1::/64

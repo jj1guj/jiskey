@@ -22,6 +22,11 @@ import { validateContentTypeSetAsActivityPub } from '@/core/activitypub/misc/val
 import { assertActivityMatchesUrl, FetchAllowSoftFailMask as FetchAllowSoftFailMask } from '@/core/activitypub/misc/check-against-url.js';
 import type { IObject } from './type.js';
 
+// 配送POSTのタイムアウト。相手サーバーが高負荷でも inbox 処理を待てるようにする。
+// 死んだホストへのリクエストはサーキットブレーカーで抑制されるため、
+// タイムアウト延長によるワーカー占有の悪化は限定的。
+const DELIVER_REQUEST_TIMEOUT = 15 * 1000;
+
 type Request = {
 	url: string;
 	method: string;
@@ -179,6 +184,7 @@ export class ApRequestService {
 			method: req.request.method,
 			headers: req.request.headers,
 			body,
+			timeout: DELIVER_REQUEST_TIMEOUT,
 		});
 	}
 

@@ -15,6 +15,16 @@ export const page = (loader: AsyncComponentLoader) => defineAsyncComponent({
 	loader: loader,
 	loadingComponent: MkLoading,
 	errorComponent: MkError,
+	onError(error, retry, fail, attempts) {
+		// ネットワーク一時断によるチャンク読み込み失敗時はリトライ (最大3回、指数バックオフ)
+		const message = error?.message ?? '';
+		if (attempts <= 3 && (message.includes('Load failed') || message.includes('module script failed') || message.includes('Failed to fetch dynamically imported module'))) {
+			const delay = 1000 * Math.pow(2, attempts - 1);
+			window.setTimeout(retry, delay);
+		} else {
+			fail();
+		}
+	},
 });
 
 function chatPage(...args: Parameters<typeof page>) {
