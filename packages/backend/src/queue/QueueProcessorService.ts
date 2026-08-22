@@ -173,11 +173,23 @@ export class QueueProcessorService implements OnApplicationShutdown {
 
 			const details = 'details' in e ? (e as Error & { details?: unknown }).details : undefined;
 
+			const event = typeof details === 'object' && details !== null && 'event' in details
+					? (details as { event?: unknown }).event
+					: undefined;
+
+			const jsonLdEvent = typeof event === 'object' && event !== null
+					? event as Record<string, unknown>
+					: undefined;
+
 			return {
 				stack: e.stack,
 				message: e.message,
 				name: e.name,
-				...(details !== undefined ? { details } : {}),
+				...(jsonLdEvent !== undefined ? {
+					jsonLdEventCode: jsonLdEvent.code,
+					jsonLdEventMessage: jsonLdEvent.message,
+					jsonLdEventDetails: jsonLdEvent.details,
+				} : {}),
 			};
 		}
 
