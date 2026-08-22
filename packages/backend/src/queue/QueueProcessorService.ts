@@ -171,10 +171,13 @@ export class QueueProcessorService implements OnApplicationShutdown {
 				return `${e.name}: ${e.message}`;
 			}
 
+			const details = 'details' in e ? (e as Error & { details?: unknown }).details : undefined;
+
 			return {
 				stack: e.stack,
 				message: e.message,
 				name: e.name,
+				...(details !== undefined ? { details } : {}),
 			};
 		}
 
