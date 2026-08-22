@@ -264,6 +264,8 @@ export class InboxProcessorService implements OnApplicationShutdown {
 
 			if (e instanceof IdentifiableError) {
 				switch (e.id) {
+					case 'd592da9f-822f-4d91-83d7-4ceefabcf3d2': // Resolver recursion limit
+						return `skip: ${e.message}`;
 					case '689ee33f-f97c-479a-ac49-1b9f8140af99':
 						return 'blocked notes with prohibited words';
 					case '85ab9bd7-3a41-4530-959d-f07073900109':
