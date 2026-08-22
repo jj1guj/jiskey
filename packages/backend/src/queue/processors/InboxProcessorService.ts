@@ -257,7 +257,7 @@ export class InboxProcessorService implements OnApplicationShutdown {
 			}
 		} catch (e) {
 			if (e instanceof StatusError && (e.statusCode === 404 || e.statusCode === 410)) {
-				const result = `skip: activity dependency returnd ${e.statusCode}`;
+				const result = `skip: activity dependency returned ${e.statusCode}`;
 				this.logger.warn(`inbox activity ignored: id=${activity.id} reason=${result}`);
 				return result;
 			}
