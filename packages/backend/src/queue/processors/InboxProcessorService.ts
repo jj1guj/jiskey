@@ -268,6 +268,7 @@ export class InboxProcessorService implements OnApplicationShutdown {
 
 			if (e instanceof IdentifiableError) {
 				switch (e.id) {
+					case '23f0cf4e-59a3-4276-a91d-61a5891c1514': // Node is already been pinned
 					case 'd592da9f-822f-4d91-83d7-4ceefabcf3d2': // Resolver recursion limit
 						return `skip: ${e.message}`;
 					case '689ee33f-f97c-479a-ac49-1b9f8140af99':
