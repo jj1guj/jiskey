@@ -193,6 +193,10 @@ export class InboxProcessorService implements OnApplicationShutdown {
 						throw new Bull.UnrecoverableError('skip: LD-Signatureの検証に失敗しました');
 					}
 				} catch (error) {
+					if (error instanceof Error && error.name === 'jsonld.ValidationError') {
+						return `skip: JSON-LD validation failed: ${error.message}`;
+					}
+
 					if (error instanceof JsonLdError) {
 						throw new Bull.UnrecoverableError(`skip: encountered a JSON-LD error while verifying signature: ${error}`);
 					} else {
