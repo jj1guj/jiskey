@@ -266,6 +266,13 @@ export class ApNoteService {
 					if (res == null) return { status: 'permerror' };
 					return { status: 'ok', res };
 				} catch (e) {
+					if (
+						e instanceof IdentifiableError &&
+						e.id === '689ee33f-f97c-479a-ac49-1b9f8140af99'
+					) {
+						throw e;
+					}
+
 					return {
 						status: (e instanceof StatusError && !e.isRetryable) ? 'permerror' : 'temperror',
 					};
@@ -414,7 +421,7 @@ export class ApNoteService {
 						publicUrl: tag.icon.url,
 						updatedAt: new Date(),
 						// _misskey_license が存在しなければ `null`
-						license: (tag._misskey_license?.freeText ?? null)
+						license: (tag._misskey_license?.freeText ?? null),
 					});
 
 					const emoji = await this.emojisRepository.findOneBy({ host, name });
@@ -437,7 +444,7 @@ export class ApNoteService {
 				updatedAt: new Date(),
 				aliases: [],
 				// _misskey_license が存在しなければ `null`
-				license: (tag._misskey_license?.freeText ?? null)
+				license: (tag._misskey_license?.freeText ?? null),
 			});
 		}));
 	}
