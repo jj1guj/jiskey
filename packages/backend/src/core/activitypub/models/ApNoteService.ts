@@ -266,10 +266,7 @@ export class ApNoteService {
 					if (res == null) return { status: 'permerror' };
 					return { status: 'ok', res };
 				} catch (e) {
-					if (
-						e instanceof IdentifiableError &&
-						e.id === '689ee33f-f97c-479a-ac49-1b9f8140af99'
-					) {
+					if (e instanceof IdentifiableError) {
 						throw e;
 					}
 
