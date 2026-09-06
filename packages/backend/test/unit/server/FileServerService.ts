@@ -4,14 +4,15 @@
  */
 
 import * as fs from 'node:fs';
+import * as http from 'node:http';
+import * as https from 'node:https';
 import * as path from 'node:path';
 import fastifyStatic from '@fastify/static';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { describe, expect, test, beforeAll, afterAll, afterEach } from 'vitest';
 import sharp from 'sharp';
 import { DataSource, type Repository } from 'typeorm';
-import { initTestDb, randomString } from '../../utils.js';
-import type { AiService } from '@/core/AiService.js';
+import type { SensitiveMediaDetectionService } from '@/core/SensitiveMediaDetectionService.js';
 import { DownloadService } from '@/core/DownloadService.js';
 import { FileInfoService } from '@/core/FileInfoService.js';
 import { HttpRequestService } from '@/core/HttpRequestService.js';
@@ -23,6 +24,7 @@ import { VideoProcessingService } from '@/core/VideoProcessingService.js';
 import { loadConfig, type Config } from '@/config.js';
 import { MiDriveFile } from '@/models/DriveFile.js';
 import { FileServerService } from '@/server/FileServerService.js';
+import { initTestDb, randomString } from '../../utils.js';
 
 const dummyPath = path.resolve('test/resources/dummy-for-file-server-service.png');
 const dummySize = fs.statSync(dummyPath).size;
@@ -147,12 +149,15 @@ describe('FileServerService', () => {
 		driveFilesRepository = db.getRepository(MiDriveFile);
 
 		const loggerService = new LoggerService();
-		const aiService = {
+		const sensitiveMediaDetectionService = {
 			detectSensitive: async () => null,
 			detectSensitiveMany: async (sources: Buffer[]) => sources.map(() => null),
-		} as unknown as AiService;
-		const fileInfoService = new FileInfoService(aiService, loggerService);
-		const httpRequestService = new HttpRequestService(config, null as any);
+		} as unknown as SensitiveMediaDetectionService;
+		const fileInfoService = new FileInfoService(sensitiveMediaDetectionService, loggerService);
+		const httpRequestService = {
+			getAgentForHttp: () => new http.Agent(),
+			getAgentForHttps: () => new https.Agent(),
+		} as unknown as HttpRequestService;
 		const downloadService = new DownloadService(config, httpRequestService, loggerService);
 		const imageProcessingService = new ImageProcessingService();
 		const videoProcessingService = new VideoProcessingService(config, imageProcessingService);
