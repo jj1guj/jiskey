@@ -1,23 +1,7 @@
-import { describe, test, beforeAll } from 'vitest';
+import { describe, test, beforeAll, vi } from 'vitest';
 import assert, { rejects, strictEqual } from 'node:assert';
 import * as Misskey from 'misskey-js';
-import { createAccount, deepStrictEqualWithExcludedFields, fetchAdmin, type LoginUser, resolveRemoteNote, resolveRemoteUser, sleep } from './utils.js';
-
-async function waitFor<T>(
-	fetchValue: () => Promise<T>,
-	predicate: (value: T) => boolean,
-	timeout = 5000,
-): Promise<T> {
-	const deadline = Date.now() + timeout;
-	let value = await fetchValue();
-
-	while (!predicate(value) && Date.now() < deadline) {
-		await sleep(100);
-		value = await fetchValue();
-	}
-
-	return value;
-}
+import { createAccount, deepStrictEqualWithExcludedFields, fetchAdmin, type LoginUser, resolveRemoteNote, resolveRemoteUser, sleep, waitForFollowers, waitForFollowing, waitForFollowRelation, WAIT_FOR_FEDERATION, WAIT_FOR_SLOW_FEDERATION } from './utils.js';
 
 const [aAdmin, bAdmin] = await Promise.all([
 	fetchAdmin('a.test'),
@@ -86,7 +70,10 @@ describe('User', () => {
 					alice.client.request('following/create', { userId: bobInA.id }),
 					bob.client.request('following/create', { userId: aliceInB.id }),
 				]);
-				await sleep();
+				await Promise.all([
+					waitForFollowRelation(alice, bob, 1),
+					waitForFollowRelation(bob, alice, 1),
+				]);
 			});
 
 			test('Visibility set public by default', async () => {
@@ -155,23 +142,16 @@ describe('User', () => {
 
 			test('Becoming a cat is sent to their followers', async () => {
 				await bob.client.request('following/create', { userId: aliceInB.id });
-
-				const followers = await waitFor(
-					() => alice.client.request('users/followers', { userId: alice.id }),
-					value => value.some(follower => follower.followerId === bobInA.id),
-				);
-				strictEqual(
-					followers.some(follower => follower.followerId === bobInA.id),
-					true,
-				);
+				// Update は「配送時点のフォロワー」にしか配送されないので、
+				// フォローが a.test 側に反映されてから i/update する
+				await waitForFollowRelation(bob, alice, 1);
 
 				await alice.client.request('i/update', { isCat: true });
 
-				const res = await waitFor(
-					() => bob.client.request('users/show', { userId: aliceInB.id }),
-					user => user.isCat === true,
-				);
-				strictEqual(res.isCat, true);
+				await vi.waitFor(async () => {
+					const res = await bob.client.request('users/show', { userId: aliceInB.id });
+					strictEqual(res.isCat, true);
+				}, WAIT_FOR_FEDERATION);
 			});
 		});
 
@@ -190,15 +170,7 @@ describe('User', () => {
 				]);
 
 				await bob.client.request('following/create', { userId: aliceInB.id });
-
-				const followers = await waitFor(
-					() => alice.client.request('users/followers', { userId: alice.id }),
-					value => value.some(follower => follower.followerId === bobInA.id),
-				);
-				strictEqual(
-					followers.some(follower => follower.followerId === bobInA.id),
-					true,
-				);
+				await waitForFollowRelation(bob, alice, 1);
 			});
 
 			test('Pinning localOnly Note is not delivered', async () => {
@@ -225,11 +197,11 @@ describe('User', () => {
 				pinnedNote = (await alice.client.request('notes/create', { text: 'a' })).createdNote;
 				await alice.client.request('i/pin', { noteId: pinnedNote.id });
 
-				const _aliceInB = await waitFor(
-					() => bob.client.request('users/show', { userId: aliceInB.id }),
-					user => user.pinnedNoteIds.length === 1,
-				);
-				strictEqual(_aliceInB.pinnedNoteIds.length, 1);
+				const _aliceInB = await vi.waitFor(async () => {
+					const _aliceInB = await bob.client.request('users/show', { userId: aliceInB.id });
+					strictEqual(_aliceInB.pinnedNoteIds.length, 1);
+					return _aliceInB;
+				}, WAIT_FOR_FEDERATION);
 				const pinnedNoteInB = await resolveRemoteNote('a.test', pinnedNote.id, bob);
 				strictEqual(_aliceInB.pinnedNotes[0].id, pinnedNoteInB.id);
 			});
@@ -237,11 +209,10 @@ describe('User', () => {
 			test('Unpinning normal Note is delivered', async () => {
 				await alice.client.request('i/unpin', { noteId: pinnedNote.id });
 
-				const _aliceInB = await waitFor(
-					() => bob.client.request('users/show', { userId: aliceInB.id }),
-					user => user.pinnedNoteIds.length === 0,
-				);
-				strictEqual(_aliceInB.pinnedNoteIds.length, 0);
+				await vi.waitFor(async () => {
+					const _aliceInB = await bob.client.request('users/show', { userId: aliceInB.id });
+					strictEqual(_aliceInB.pinnedNoteIds.length, 0);
+				}, WAIT_FOR_FEDERATION);
 			});
 		});
 	});
@@ -266,7 +237,7 @@ describe('User', () => {
 			beforeAll(async () => {
 				await alice.client.request('following/create', { userId: bobInA.id });
 
-				await sleep();
+				await waitForFollowRelation(alice, bob, 1);
 			});
 
 			test('Check consistency with `users/following` and `users/followers` endpoints', async () => {
@@ -289,7 +260,7 @@ describe('User', () => {
 			beforeAll(async () => {
 				await alice.client.request('following/delete', { userId: bobInA.id });
 
-				await sleep();
+				await waitForFollowRelation(alice, bob, 0);
 			});
 
 			test('Check consistency with `users/following` and `users/followers` endpoints', async () => {
@@ -310,6 +281,13 @@ describe('User', () => {
 	});
 
 	describe('Follow requests', () => {
+		async function waitForFollowRequests(followee: LoginUser, count: number): Promise<void> {
+			await vi.waitFor(async () => {
+				const requests = await followee.client.request('following/requests/list', {});
+				strictEqual(requests.length, count);
+			}, WAIT_FOR_FEDERATION);
+		}
+
 		let alice: LoginUser, bob: LoginUser;
 		let bobInA: Misskey.entities.UserDetailedNotMe, aliceInB: Misskey.entities.UserDetailedNotMe;
 
@@ -331,7 +309,7 @@ describe('User', () => {
 			describe('Bob sends follow request to Alice', () => {
 				beforeAll(async () => {
 					await bob.client.request('following/create', { userId: aliceInB.id });
-					await sleep();
+					await waitForFollowRequests(alice, 1);
 				});
 
 				test('Alice should have a request', async () => {
@@ -345,7 +323,7 @@ describe('User', () => {
 			describe('Alice cancels it', () => {
 				beforeAll(async () => {
 					await bob.client.request('following/requests/cancel', { userId: aliceInB.id });
-					await sleep();
+					await waitForFollowRequests(alice, 0);
 				});
 
 				test('Alice should have no requests', async () => {
@@ -358,10 +336,13 @@ describe('User', () => {
 		describe('Send follow request from Bob to Alice and reject', () => {
 			beforeAll(async () => {
 				await bob.client.request('following/create', { userId: aliceInB.id });
-				await sleep();
+				await waitForFollowRequests(alice, 1);
 
 				await alice.client.request('following/requests/reject', { userId: bobInA.id });
-				await sleep();
+				await vi.waitFor(async () => {
+					const sent = await bob.client.request('following/requests/sent', {});
+					strictEqual(sent.length, 0);
+				}, WAIT_FOR_FEDERATION);
 			});
 
 			test('Bob should have no requests', async () => {
@@ -383,10 +364,10 @@ describe('User', () => {
 		describe('Send follow request from Bob to Alice and accept', () => {
 			beforeAll(async () => {
 				await bob.client.request('following/create', { userId: aliceInB.id });
-				await sleep();
+				await waitForFollowRequests(alice, 1);
 
 				await alice.client.request('following/requests/accept', { userId: bobInA.id });
-				await sleep();
+				await waitForFollowing(bob, 1);
 			});
 
 			test('Bob follows Alice', async () => {
@@ -417,16 +398,10 @@ describe('User', () => {
 
 			test('Bob follows Alice, and Alice deleted themself', async () => {
 				await bob.client.request('following/create', { userId: aliceInB.id });
-				await sleep();
-
-				const followers = await alice.client.request('users/followers', { userId: alice.id });
-				strictEqual(followers.length, 1); // followed by Bob
+				await waitForFollowRelation(bob, alice, 1); // followed by Bob
 
 				await alice.client.request('i/delete-account', { password: alice.password });
-				await sleep();
-
-				const following = await bob.client.request('users/following', { userId: bob.id });
-				strictEqual(following.length, 0); // no following relation
+				await waitForFollowing(bob, 0, WAIT_FOR_SLOW_FEDERATION); // no following relation
 
 				await rejects(
 					async () => await bob.client.request('following/create', { userId: aliceInB.id }),
@@ -456,10 +431,7 @@ describe('User', () => {
 
 			test('Bob follows Alice, then Alice gets deleted in B server', async () => {
 				await bob.client.request('following/create', { userId: aliceInB.id });
-				await sleep();
-
-				const followers = await alice.client.request('users/followers', { userId: alice.id });
-				strictEqual(followers.length, 1); // followed by Bob
+				await waitForFollowRelation(bob, alice, 1); // followed by Bob
 
 				await bAdmin.client.request('admin/delete-account', { userId: aliceInB.id });
 				await sleep();
@@ -515,16 +487,10 @@ describe('User', () => {
 
 			test('Bob follows Alice, and Alice gets suspended, there is no following relation, and Bob fails to follow again', async () => {
 				await bob.client.request('following/create', { userId: aliceInB.id });
-				await sleep();
-
-				const followers = await alice.client.request('users/followers', { userId: alice.id });
-				strictEqual(followers.length, 1); // followed by Bob
+				await waitForFollowRelation(bob, alice, 1); // followed by Bob
 
 				await aAdmin.client.request('admin/suspend-user', { userId: alice.id });
-				await sleep();
-
-				const following = await bob.client.request('users/following', { userId: bob.id });
-				strictEqual(following.length, 0); // no following relation
+				await waitForFollowing(bob, 0, WAIT_FOR_SLOW_FEDERATION); // no following relation
 
 				await rejects(
 					async () => await bob.client.request('following/create', { userId: aliceInB.id }),
@@ -570,10 +536,9 @@ describe('User', () => {
 			 */
 			test('Alice can follow Bob', async () => {
 				await alice.client.request('following/create', { userId: bobInA.id });
-				await sleep();
+				await waitForFollowers(bob, 1); // followed by Alice
 
 				const bobFollowers = await bob.client.request('users/followers', { userId: bob.id });
-				strictEqual(bobFollowers.length, 1); // followed by Alice
 				assert(bobFollowers[0].follower != null);
 				const renewedaliceInB = bobFollowers[0].follower;
 				assert(aliceInB.username === renewedaliceInB.username);
@@ -585,10 +550,7 @@ describe('User', () => {
 
 				// Bob tries to follow Alice
 				await bob.client.request('following/create', { userId: renewedaliceInB.id });
-				await sleep();
-
-				const aliceFollowers = await alice.client.request('users/followers', { userId: alice.id });
-				strictEqual(aliceFollowers.length, 1);
+				await waitForFollowers(alice, 1);
 
 				// FIXME: but resolving still fails ...
 				await rejects(

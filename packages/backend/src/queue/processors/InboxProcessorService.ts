@@ -193,6 +193,10 @@ export class InboxProcessorService implements OnApplicationShutdown {
 						throw new Bull.UnrecoverableError('skip: LD-Signatureの検証に失敗しました');
 					}
 				} catch (error) {
+					if (error instanceof Error && error.name === 'jsonld.ValidationError') {
+						return `skip: JSON-LD validation failed: ${error.message}`;
+					}
+
 					if (error instanceof JsonLdError) {
 						throw new Bull.UnrecoverableError(`skip: encountered a JSON-LD error while verifying signature: ${error}`);
 					} else {
@@ -256,8 +260,17 @@ export class InboxProcessorService implements OnApplicationShutdown {
 				return result;
 			}
 		} catch (e) {
+			if (e instanceof StatusError && (e.statusCode === 404 || e.statusCode === 410)) {
+				const result = `skip: activity dependency returned ${e.statusCode}`;
+				this.logger.warn(`inbox activity ignored: id=${activity.id} reason=${result}`);
+				return result;
+			}
+
 			if (e instanceof IdentifiableError) {
 				switch (e.id) {
+					case '23f0cf4e-59a3-4276-a91d-61a5891c1514': // Node is already been pinned
+					case 'd592da9f-822f-4d91-83d7-4ceefabcf3d2': // Resolver recursion limit
+						return `skip: ${e.message}`;
 					case '689ee33f-f97c-479a-ac49-1b9f8140af99':
 						return 'blocked notes with prohibited words';
 					case '85ab9bd7-3a41-4530-959d-f07073900109':
