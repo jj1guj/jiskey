@@ -108,6 +108,11 @@ export class FanoutTimelineEndpointService {
 				filter = (note) => (!isRenote(note) || isQuote(note)) && parentFilter(note);
 			}
 
+			if (ps.me == null) {
+				const parentFilter = filter;
+				filter = (note) => !(note.renoteId != null && note.user?.requireSigninToViewContents) && parentFilter(note);
+			}
+
 			if (ps.me) {
 				const me = ps.me;
 				const [
