@@ -301,6 +301,7 @@ export function userDetailed(id = 'someuserid', username = 'miskist', host: enti
 		pinnedPage: null,
 		pinnedPageId: null,
 		publicReactions: false,
+		requireSigninToViewReactions: false,
 		securityKeys: false,
 		twoFactorEnabled: false,
 		usePasswordLessLogin: false,

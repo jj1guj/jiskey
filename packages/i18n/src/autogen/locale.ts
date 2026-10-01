@@ -6366,6 +6366,14 @@ export interface Locale extends ILocale {
          */
         "requireSigninToViewContentsDescription3": string;
         /**
+         * リアクション一覧の表示にログインを必須にする
+         */
+        "requireSigninToViewReactions": string;
+        /**
+         * あなたがリアクションしたノートの一覧を表示するにはログインが必要になります。個々のノートに表示されるリアクションは対象外です。
+         */
+        "requireSigninToViewReactionsDescription": string;
+        /**
          * 過去のノートをフォロワーのみ表示可能にする
          */
         "makeNotesFollowersOnlyBefore": string;

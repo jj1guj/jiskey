@@ -101,6 +101,11 @@ export class MiUserProfile {
 	})
 	public publicReactions: boolean;
 
+	@Column('boolean', {
+		default: false,
+	})
+	public requireSigninToViewReactions: boolean;
+
 	@Column('enum', {
 		enum: followingVisibilities,
 		default: 'public',
