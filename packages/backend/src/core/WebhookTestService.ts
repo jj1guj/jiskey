@@ -460,6 +460,7 @@ export class WebhookTestService {
 			pinnedPageId: null,
 			pinnedPage: null,
 			publicReactions: true,
+			requireSigninToViewReactions: false,
 			followersVisibility: 'public',
 			followingVisibility: 'public',
 			chatScope: 'mutual',

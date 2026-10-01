@@ -4106,6 +4106,7 @@ export type components = {
             pinnedPageId: string | null;
             pinnedPage: components['schemas']['Page'] | null;
             publicReactions: boolean;
+            requireSigninToViewReactions: boolean;
             /** @enum {string} */
             followingVisibility: 'public' | 'followers' | 'private';
             /** @enum {string} */
@@ -27889,6 +27890,7 @@ export interface operations {
                     isExplorable?: boolean;
                     hideOnlineStatus?: boolean;
                     publicReactions?: boolean;
+                    requireSigninToViewReactions?: boolean;
                     carefulBot?: boolean;
                     autoAcceptFollowed?: boolean;
                     noCrawle?: boolean;
@@ -34515,6 +34517,8 @@ export interface operations {
             content: {
                 'application/json': {
                     endpoint: string;
+                    auth: string;
+                    publickey: string;
                 };
             };
         };
@@ -34554,6 +34558,15 @@ export interface operations {
             };
             /** @description I'm Ai */
             418: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    'application/json': components['schemas']['Error'];
+                };
+            };
+            /** @description Too many requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };

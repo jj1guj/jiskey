@@ -64,6 +64,8 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 				query.andWhere('note.userHost IS NULL');
 			}
 
+			if (me == null) this.queryService.generateUgcVisibilityQueryForVisitor(query);
+
 			if (ps.reply !== undefined) {
 				query.andWhere(ps.reply ? 'note.replyId IS NOT NULL' : 'note.replyId IS NULL');
 			}
@@ -85,9 +87,11 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 			//	query.isBot = bot;
 			//}
 
+			this.queryService.generateExcludeSigninRequiredRenotesQueryForNotes(query, me);
+
 			const notes = await query.limit(ps.limit).getMany();
 
-			return await this.noteEntityService.packMany(notes);
+			return await this.noteEntityService.packMany(notes, me);
 		});
 	}
 }

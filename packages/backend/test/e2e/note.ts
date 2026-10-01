@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-import type { Repository } from "typeorm";
+import type { Repository } from 'typeorm';
 
 process.env.NODE_ENV = 'test';
 
@@ -144,6 +144,31 @@ describe('Note', () => {
 		assert.strictEqual(res.body.createdNote.renoteId, alicePost.renoteId);
 		assert.ok(res.body.createdNote.renote);
 		assert.strictEqual(res.body.createdNote.renote.text, bobPost.text);
+	});
+
+	test('ログイン必須ユーザーのリノートは未ログインのnotes一覧から除外される', async () => {
+		const renoter = await signup({ username: 'signinrenoter' });
+		const update = await api('i/update', { requireSigninToViewContents: true }, renoter);
+		assert.strictEqual(update.status, 200);
+
+		const original = await post(bob, { text: 'original' });
+		const pureRenote = await post(renoter, { renoteId: original.id });
+		const quoteRenote = await post(renoter, { renoteId: original.id, text: 'quote' });
+
+		const guest = await api('notes', { renote: true, limit: 100 });
+		assert.strictEqual(guest.status, 200);
+		assert.strictEqual(guest.body.some(note => note.id === pureRenote.id), false);
+		assert.strictEqual(guest.body.some(note => note.id === quoteRenote.id), false);
+
+		const signedIn = await api('notes', { renote: true, limit: 100 }, alice);
+		assert.strictEqual(signedIn.status, 200);
+		const visiblePureRenote = signedIn.body.find(note => note.id === pureRenote.id);
+		const visibleQuoteRenote = signedIn.body.find(note => note.id === quoteRenote.id);
+		assert.ok(visiblePureRenote);
+		assert.ok(visibleQuoteRenote);
+		assert.strictEqual(visiblePureRenote.renote?.text, original.text);
+		assert.strictEqual(visibleQuoteRenote.text, 'quote');
+		assert.strictEqual(visibleQuoteRenote.renote?.text, original.text);
 	});
 
 	test('引用renoteで空白文字のみで構成されたtextにするとレスポンスがtext: nullになる', async () => {

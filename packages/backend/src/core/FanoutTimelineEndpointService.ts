@@ -108,6 +108,11 @@ export class FanoutTimelineEndpointService {
 				filter = (note) => (!isRenote(note) || isQuote(note)) && parentFilter(note);
 			}
 
+			if (ps.me == null) {
+				const parentFilter = filter;
+				filter = (note) => !(note.renoteId != null && note.user?.requireSigninToViewContents) && parentFilter(note);
+			}
+
 			if (ps.me) {
 				const me = ps.me;
 				const [
@@ -146,6 +151,16 @@ export class FanoutTimelineEndpointService {
 					}
 					if (note.userId !== note.renoteUserId && this.utilityService.isBlockedHost(this.meta.blockedHosts, note.renoteUserHost)) return false;
 					if (note.userId !== note.replyUserId && this.utilityService.isBlockedHost(this.meta.blockedHosts, note.replyUserHost)) return false;
+
+					return parentFilter(note);
+				};
+			}
+
+			if (ps.me == null && this.meta.ugcVisibilityForVisitor !== 'all') {
+				const parentFilter = filter;
+				filter = (note) => {
+					if (this.meta.ugcVisibilityForVisitor === 'none') return false;
+					if (this.meta.ugcVisibilityForVisitor === 'local' && note.userHost != null) return false;
 
 					return parentFilter(note);
 				};

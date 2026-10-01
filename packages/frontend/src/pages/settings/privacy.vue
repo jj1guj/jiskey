@@ -103,6 +103,13 @@ SPDX-License-Identifier: AGPL-3.0-only
 						</MkSwitch>
 					</SearchMarker>
 
+					<SearchMarker :keywords="['reaction', 'login', 'signin']">
+						<MkSwitch v-model="requireSigninToViewReactions" @update:modelValue="save()">
+							<template #label><SearchLabel>{{ i18n.ts._accountSettings.requireSigninToViewReactions }}</SearchLabel></template>
+							<template #caption><SearchText>{{ i18n.ts._accountSettings.requireSigninToViewReactionsDescription }}</SearchText></template>
+						</MkSwitch>
+					</SearchMarker>
+
 					<SearchMarker :keywords="['follower']">
 						<FormSlot>
 							<template #label><SearchLabel>{{ i18n.ts._accountSettings.makeNotesFollowersOnlyBefore }}</SearchLabel></template>
@@ -239,6 +246,7 @@ const noCrawle = ref($i.noCrawle);
 const preventAiLearning = ref($i.preventAiLearning);
 const isExplorable = ref($i.isExplorable);
 const requireSigninToViewContents = ref($i.requireSigninToViewContents ?? false);
+const requireSigninToViewReactions = ref($i.requireSigninToViewReactions ?? false);
 const makeNotesFollowersOnlyBefore = ref($i.makeNotesFollowersOnlyBefore ?? null);
 const makeNotesHiddenBefore = ref($i.makeNotesHiddenBefore ?? null);
 const hideOnlineStatus = ref($i.hideOnlineStatus);
@@ -408,6 +416,7 @@ function save() {
 		preventAiLearning: !!preventAiLearning.value,
 		isExplorable: !!isExplorable.value,
 		requireSigninToViewContents: !!requireSigninToViewContents.value,
+		requireSigninToViewReactions: !!requireSigninToViewReactions.value,
 		makeNotesFollowersOnlyBefore: makeNotesFollowersOnlyBefore.value,
 		makeNotesHiddenBefore: makeNotesHiddenBefore.value,
 		hideOnlineStatus: !!hideOnlineStatus.value,
