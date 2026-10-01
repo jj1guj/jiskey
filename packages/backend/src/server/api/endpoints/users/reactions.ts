@@ -43,6 +43,11 @@ export const meta = {
 			code: 'IS_REMOTE_USER',
 			id: '6b95fa98-8cf9-2350-e284-f0ffdb54a805',
 		},
+		signinRequired: {
+			message: 'Signin required.',
+			code: 'SIGNIN_REQUIRED',
+			id: '705462f2-16fb-488c-bc6e-472fcc2cfdf5',
+		},
 	},
 } as const;
 
@@ -86,6 +91,10 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 				const profile = await this.userProfilesRepository.findOneByOrFail({ userId: ps.userId });
 				if ((me == null || me.id !== ps.userId) && !profile.publicReactions) {
 					throw new ApiError(meta.errors.reactionsNotPublic);
+				}
+
+				if (me == null && profile.requireSigninToViewReactions) {
+					throw new ApiError(meta.errors.signinRequired);
 				}
 
 				// early return if me is blocked by requesting user

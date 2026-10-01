@@ -6,11 +6,11 @@
 process.env.NODE_ENV = 'test';
 
 import * as assert from 'assert';
-import { beforeAll, beforeEach, describe, test } from 'vitest';
 import { inspect } from 'node:util';
+import { beforeAll, beforeEach, describe, test } from 'vitest';
+import { DEFAULT_POLICIES } from '@/core/RoleService.js';
 import { api, post, role, signup, successfulApiCall, uploadFile } from '../utils.js';
 import type * as misskey from 'misskey-js';
-import { DEFAULT_POLICIES } from '@/core/RoleService.js';
 
 describe('ユーザー', () => {
 	// エンティティとしてのユーザーを主眼においたテストを記述する
@@ -82,6 +82,7 @@ describe('ユーザー', () => {
 			pinnedPageId: user.pinnedPageId,
 			pinnedPage: user.pinnedPage,
 			publicReactions: user.publicReactions,
+			requireSigninToViewReactions: user.requireSigninToViewReactions,
 			followingVisibility: user.followingVisibility,
 			followersVisibility: user.followersVisibility,
 			chatScope: user.chatScope,
@@ -345,6 +346,7 @@ describe('ユーザー', () => {
 		assert.strictEqual(response.pinnedPageId, null);
 		assert.strictEqual(response.pinnedPage, null);
 		assert.strictEqual(response.publicReactions, true);
+		assert.strictEqual(response.requireSigninToViewReactions, false);
 		assert.strictEqual(response.followingVisibility, 'public');
 		assert.strictEqual(response.followersVisibility, 'public');
 		assert.strictEqual(response.chatScope, 'mutual');
@@ -444,6 +446,8 @@ describe('ユーザー', () => {
 		{ parameters: () => ({ hideOnlineStatus: false }) },
 		{ parameters: () => ({ publicReactions: false }) },
 		{ parameters: () => ({ publicReactions: true }) },
+		{ parameters: () => ({ requireSigninToViewReactions: true }) },
+		{ parameters: () => ({ requireSigninToViewReactions: false }) },
 		{ parameters: () => ({ autoAcceptFollowed: true }) },
 		{ parameters: () => ({ autoAcceptFollowed: false }) },
 		{ parameters: () => ({ noCrawle: true }) },

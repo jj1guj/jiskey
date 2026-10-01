@@ -5,7 +5,11 @@ SPDX-License-Identifier: AGPL-3.0-only
 
 <template>
 <div class="_spacer" style="--MI_SPACER-w: 700px;">
-	<MkPagination v-slot="{items}" :paginator="paginator">
+	<div v-if="$i == null && user.requireSigninToViewReactions">
+		<div>{{ i18n.ts.signinRequired }}</div>
+		<MkButton @click="pleaseLogin()">{{ i18n.ts.login }}</MkButton>
+	</div>
+	<MkPagination v-else v-slot="{items}" :paginator="paginator">
 		<div v-for="item in items" :key="item.id" :to="`/clips/${item.id}`" class="_panel _margin">
 			<div :class="$style.header">
 				<MkAvatar :class="$style.avatar" :user="user"/>
@@ -25,9 +29,13 @@ import MkPagination from '@/components/MkPagination.vue';
 import MkNote from '@/components/MkNote.vue';
 import MkReactionIcon from '@/components/MkReactionIcon.vue';
 import { Paginator } from '@/utility/paginator.js';
+import MkButton from '@/components/MkButton.vue';
+import { $i } from '@/i.js';
+import { i18n } from '@/i18n.js';
+import { pleaseLogin } from '@/utility/please-login.js';
 
 const props = defineProps<{
-	user: Misskey.entities.User;
+	user: Misskey.entities.UserDetailed;
 }>();
 
 const paginator = markRaw(new Paginator('users/reactions', {
