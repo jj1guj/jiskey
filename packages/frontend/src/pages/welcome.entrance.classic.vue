@@ -6,14 +6,14 @@ SPDX-License-Identifier: AGPL-3.0-only
 <template>
 <div v-if="meta" :class="$style.root">
 	<MkFeaturedPhotos :class="$style.bg"/>
-	<XTimeline :class="$style.tl"/>
+	<XTimeline v-show="hasTimelineNotes" :class="$style.tl" @loaded="hasTimelineNotes = $event"/>
 	<div :class="$style.shape1"></div>
 	<div :class="$style.shape2"></div>
 	<div :class="$style.logoWrapper">
 		<div :class="$style.poweredBy">Powered by</div>
 		<img :src="misskeysvg" :class="$style.misskey"/>
 	</div>
-	<div :class="$style.contents">
+	<div :class="[$style.contents, { [$style.noTimeline]: !hasTimelineNotes }]">
 		<MkVisitorDashboard/>
 	</div>
 	<div v-if="instances && instances.length > 0" :class="$style.federation">
@@ -41,6 +41,7 @@ import { getProxiedImageUrl } from '@/utility/media-proxy.js';
 import { instance as meta } from '@/instance.js';
 
 const instances = ref<Misskey.entities.FederationInstance[]>();
+const hasTimelineNotes = ref(true);
 
 function getInstanceIcon(instance: Misskey.entities.FederationInstance): string {
 	if (!instance.iconUrl) {
@@ -143,6 +144,9 @@ misskeyApiGet('federation/instances', {
 	width: min(430px, calc(100% - 32px));
 	margin-left: 128px;
 	padding: 100px 0 100px 0;
+	&.noTimeline {
+		margin: 0 auto;
+	}
 
 	@media (max-width: 1200px) {
 		margin: auto;

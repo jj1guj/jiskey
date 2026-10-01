@@ -103,12 +103,24 @@ export class QueryService {
 	): void {
 		this.generateBlockedHostQueryForNote(query, excludeAuthor);
 		this.generateSuspendedUserQueryForNote(query, excludeAuthor);
+		this.generateExcludeSigninRequiredRenotesQueryForNotes(query, me);
 		if (me) {
 			this.generateMutedUserQueryForNotes(query, me, { excludeUserFromMute });
 			this.generateBlockedUserQueryForNotes(query, me);
 			this.generateMutedUserQueryForNotes(query, me, { noteColumn: 'renote', excludeUserFromMute });
 			this.generateBlockedUserQueryForNotes(query, me, { noteColumn: 'renote' });
 		}
+	}
+
+	@bindThis
+	public generateExcludeSigninRequiredRenotesQueryForNotes(q: SelectQueryBuilder<any>, me: { id: MiUser['id'] } | null): void {
+		if (me != null) return;
+
+		q.andWhere(new Brackets(qb => {
+			qb
+				.where('note.renoteId IS NULL')
+				.orWhere('user.requireSigninToViewContents = FALSE');
+		}));
 	}
 
 	// ここでいうBlockedは被Blockedの意

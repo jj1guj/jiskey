@@ -30,9 +30,11 @@ const notes = ref<Misskey.entities.Note[]>([]);
 const isScrolling = ref(false);
 const scrollState = ref<null | 'intro' | 'loop'>(null);
 const notesMainContainerEl = useTemplateRef('notesMainContainerEl');
+const emit = defineEmits<{ (ev: 'loaded', hasNotes: boolean): void }>();
 
 misskeyApiGet('notes/featured').then(_notes => {
 	notes.value = _notes;
+	emit('loaded', _notes.length > 0);
 });
 
 function changeScrollState() {
